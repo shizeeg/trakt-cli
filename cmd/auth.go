@@ -36,7 +36,7 @@ var authCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Please go to %s and enter the following code: %s\n", resp.VerificationURL, resp.UserCode)
+		fmt.Printf("Please go to %q and enter the following code: %s\n", resp.VerificationURL, resp.UserCode)
 
 		s := spinner.New(spinner.CharSets[2], 100*time.Millisecond)
 		s.Start()
@@ -63,7 +63,7 @@ var authCmd = &cobra.Command{
 
 				yamlData, err := yaml.Marshal(&creds)
 				if err != nil {
-					fmt.Printf("Error while Marshaling. %v", err)
+					log.Fatalf("Error while Marshaling: %v", err)
 				}
 
 				configFile, err := xdg.ConfigFile("trakt-cli/config.yaml")
@@ -72,7 +72,7 @@ var authCmd = &cobra.Command{
 				}
 				err = os.WriteFile(configFile, yamlData, 0644)
 				if err != nil {
-					fmt.Printf("Error while writing to file. %v", err)
+					log.Printf("Error while writing to file. %v", err)
 				}
 
 				s.Stop()

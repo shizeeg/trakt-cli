@@ -331,3 +331,84 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 
 	return resp, nil
 }
+
+func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err error) {
+
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodGet,
+		path:   fmt.Sprintf("/search/%s?query=%s", mediaType, query),
+		body:   nil,
+		auth:   true,
+	})
+	if err != nil {
+		return resp, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode == 200 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			return resp, err
+		}
+	} else {
+		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+	}
+	return resp, nil
+}
+
+func (c *APIClient) TraktSearch(guess Guess) (resp TraktResponse, err error) {
+	resp, err = c.TraktQuery(guess.Title, guess.Type)
+	if err != nil {
+		return
+	}
+	var result TraktResponse
+	for _, item := range resp {
+		if item.Episode.Season == guess.Season &&
+			item.Episode.Number == guess.Episode {
+			// fmt.Printf("%dx%02d %s\n", item.Episode.Season, item.Episode.Number, item.Episode.Title)
+			result = append(result, item)
+		}
+	}
+	return result, err
+}
+
+type TraktResponse []TraktItem
+
+type TraktItem struct {
+	Type  string  `json:"type,omitempty"`
+	Score float64 `json:"score,omitempty"`
+	Movie struct {
+		Title string `json:"title,omitempty"`
+		Year  int    `json:"year,omitempty"`
+		Ids   struct {
+			Trakt int    `json:"trakt,omitempty"`
+			Slug  string `json:"slug,omitempty"`
+			Imdb  string `json:"imdb,omitempty"`
+			Tmdb  int    `json:"tmdb,omitempty"`
+		} `json:"ids,omitempty"`
+	} `json:"movie,omitempty"`
+	Episode struct {
+		Season int    `json:"season,omitempty"`
+		Number int    `json:"number,omitempty"`
+		Title  string `json:"title,omitempty"`
+		Ids    struct {
+			Trakt int    `json:"trakt,omitempty"`
+			Tvdb  int    `json:"tvdb,omitempty"`
+			Imdb  string `json:"imdb,omitempty"`
+			Tmdb  int    `json:"tmdb,omitempty"`
+			// Tvrage string `json:"tvrage,omitempty"`
+		} `json:"ids,omitempty"`
+	} `json:"episode,omitempty"`
+	Show struct {
+		Title string `json:"title,omitempty"`
+		Year  int    `json:"year,omitempty"`
+		Ids   struct {
+			Trakt int    `json:"trakt,omitempty"`
+			Slug  string `json:"slug,omitempty"`
+			Tvdb  int    `json:"tvdb,omitempty"`
+			Imdb  string `json:"imdb,omitempty"`
+			Tmdb  int    `json:"tmdb,omitempty"`
+			// Tvrage string `json:"tvrage,omitempty"`
+		} `json:"ids,omitempty"`
+	} `json:"show,omitempty"`
+}
