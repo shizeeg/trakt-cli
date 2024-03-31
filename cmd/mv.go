@@ -40,7 +40,7 @@ var mvCmd = &cobra.Command{
 			// }
 			out := args[1]
 			out = strings.ReplaceAll(out, "<container>", guess.Container)
-			if item.Type == "movie" && item.Movie.Year == guess.Year {
+			if item.Type == "movie" {
 				out = strings.ReplaceAll(out, "<title>", item.Movie.Title)
 				out = strings.ReplaceAll(out, "<year>", fmt.Sprintf("%04d", item.Movie.Year))
 				fmt.Println(filepath.Clean(out))

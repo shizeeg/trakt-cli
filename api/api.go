@@ -363,9 +363,7 @@ func (c *APIClient) TraktSearch(guess Guess) (resp TraktResponse, err error) {
 	}
 	var result TraktResponse
 	for _, item := range resp {
-		if item.Episode.Season == guess.Season &&
-			item.Episode.Number == guess.Episode {
-			// fmt.Printf("%dx%02d %s\n", item.Episode.Season, item.Episode.Number, item.Episode.Title)
+		if item.Match(guess) {
 			result = append(result, item)
 		}
 	}
@@ -373,6 +371,23 @@ func (c *APIClient) TraktSearch(guess Guess) (resp TraktResponse, err error) {
 }
 
 type TraktResponse []TraktItem
+
+func (ti *TraktItem) Match(guess Guess) bool {
+	switch guess.Type {
+	case "movie":
+		if guess.Year == 0 || ti.Movie.Year == guess.Year {
+			return true
+		}
+	case "episode", "show":
+		if ti.Episode.Season == guess.Season &&
+			ti.Episode.Number == guess.Episode {
+			if guess.Year == 0 || ti.Show.Year == guess.Year {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 type TraktItem struct {
 	Type  string  `json:"type,omitempty"`
