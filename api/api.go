@@ -332,8 +332,69 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 	return resp, nil
 }
 
-func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err error) {
+type TraktShow struct {
+	Title string `json:"title,omitempty"`
+	Year  int    `json:"year,omitempty"`
+	Ids   struct {
+		Trakt int    `json:"trakt,omitempty"`
+		Slug  string `json:"slug,omitempty"`
+		Tvdb  int    `json:"tvdb,omitempty"`
+		Imdb  string `json:"imdb,omitempty"`
+		Tmdb  int    `json:"tmdb,omitempty"`
+		// Tvrage string `json:"tvrage,omitempty"`
+	}
+}
+type TraktEpisode struct {
+	Progress float64 `json:"progress,omitempty"`
+	Season   int     `json:"season,omitempty"`
+	Number   int     `json:"number,omitempty"`
+	Title    string  `json:"title,omitempty"`
+	Ids      struct {
+		Trakt int    `json:"trakt,omitempty"`
+		Tvdb  int    `json:"tvdb,omitempty"`
+		Imdb  string `json:"imdb,omitempty"`
+		Tmdb  int    `json:"tmdb,omitempty"`
+		// Tvrage string `json:"tvrage,omitempty"`
+	} `json:"ids,omitempty"`
+	// NumberAbs             any       `json:"number_abs,omitempty"`
+	Overview              string    `json:"overview,omitempty"`
+	FirstAired            time.Time `json:"first_aired,omitempty"`
+	UpdatedAt             time.Time `json:"updated_at,omitempty"`
+	Rating                int       `json:"rating,omitempty"`
+	Votes                 int       `json:"votes,omitempty"`
+	CommentCount          int       `json:"comment_count,omitempty"`
+	AvailableTranslations []string  `json:"available_translations,omitempty"`
+	Runtime               int       `json:"runtime,omitempty"`
+	EpisodeType           string    `json:"episode_type,omitempty"`
+}
 
+func (te TraktEpisode) String() string {
+	return fmt.Sprintf("[%d]: %dx%02d %q\n", te.Ids.Trakt, te.Season, te.Number, te.Title)
+}
+
+func (c *APIClient) EpisodeSummary(showID string, season int, episode int) (resp TraktEpisode, err error) {
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodGet,
+		path:   fmt.Sprintf("/shows/%s/seasons/%d/episodes/%d", showID, season, episode),
+		body:   nil,
+		auth:   true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer httpResp.Body.Close()
+	if httpResp.StatusCode == 200 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+	}
+	return
+}
+
+func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err error) {
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
 		path:   fmt.Sprintf("/search/%s?query=%s", mediaType, query),
@@ -356,15 +417,32 @@ func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err
 	return resp, nil
 }
 
-func (c *APIClient) TraktSearch(guess Guess) (resp TraktResponse, err error) {
-	resp, err = c.TraktQuery(guess.Title, guess.Type)
-	if err != nil {
-		return
+func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
+	mediaType := guess.Type
+	if guess.Type == "episode" {
+		mediaType = "show"
 	}
-	var result TraktResponse
+	resp, err := c.TraktQuery(guess.Title, mediaType)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, item := range resp {
 		if item.Match(guess) {
-			result = append(result, item)
+			switch item.Type {
+			case "show":
+				ep, err := c.EpisodeSummary(item.Show.Ids.Slug, guess.Season, guess.Episode)
+				if err != nil {
+					log.Fatal(err)
+				}
+				result = append(result,
+					TraktItem{Type: "episode",
+						Episode: ep,
+						Show:    TraktShow{Title: item.Show.Title, Year: item.Show.Year},
+					})
+				// return result, nil
+			case "movie":
+				result = append(result, item)
+			}
 		}
 	}
 	return result, err
@@ -372,27 +450,11 @@ func (c *APIClient) TraktSearch(guess Guess) (resp TraktResponse, err error) {
 
 type TraktResponse []TraktItem
 
-func (ti *TraktItem) Match(guess Guess) bool {
-	switch guess.Type {
-	case "movie":
-		if guess.Year == 0 || ti.Movie.Year == guess.Year {
-			return true
-		}
-	case "episode", "show":
-		if ti.Episode.Season == guess.Season &&
-			ti.Episode.Number == guess.Episode {
-			if guess.Year == 0 || ti.Show.Year == guess.Year {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 type TraktItem struct {
-	Type  string  `json:"type,omitempty"`
-	Score float64 `json:"score,omitempty"`
-	Movie struct {
+	Type     string  `json:"type,omitempty"`
+	Score    float64 `json:"score,omitempty"`
+	Progress float64 `json:"progress,omitempty"`
+	Movie    struct {
 		Title string `json:"title,omitempty"`
 		Year  int    `json:"year,omitempty"`
 		Ids   struct {
@@ -402,28 +464,64 @@ type TraktItem struct {
 			Tmdb  int    `json:"tmdb,omitempty"`
 		} `json:"ids,omitempty"`
 	} `json:"movie,omitempty"`
-	Episode struct {
-		Season int    `json:"season,omitempty"`
-		Number int    `json:"number,omitempty"`
-		Title  string `json:"title,omitempty"`
-		Ids    struct {
-			Trakt int    `json:"trakt,omitempty"`
-			Tvdb  int    `json:"tvdb,omitempty"`
-			Imdb  string `json:"imdb,omitempty"`
-			Tmdb  int    `json:"tmdb,omitempty"`
-			// Tvrage string `json:"tvrage,omitempty"`
-		} `json:"ids,omitempty"`
-	} `json:"episode,omitempty"`
-	Show struct {
-		Title string `json:"title,omitempty"`
-		Year  int    `json:"year,omitempty"`
-		Ids   struct {
-			Trakt int    `json:"trakt,omitempty"`
-			Slug  string `json:"slug,omitempty"`
-			Tvdb  int    `json:"tvdb,omitempty"`
-			Imdb  string `json:"imdb,omitempty"`
-			Tmdb  int    `json:"tmdb,omitempty"`
-			// Tvrage string `json:"tvrage,omitempty"`
-		} `json:"ids,omitempty"`
-	} `json:"show,omitempty"`
+	Episode TraktEpisode `json:"episode,omitempty"`
+	Show    TraktShow    `json:"show,omitempty"`
+}
+
+func (ti TraktItem) String() string {
+	switch ti.Type {
+	case "movie":
+		return fmt.Sprintf("%s (%04d)", ti.Movie.Title, ti.Movie.Year)
+	case "episode":
+		return fmt.Sprintf("%s %dx%02d %q (%04d)",
+			ti.Show.Title,
+			ti.Episode.Season,
+			ti.Episode.Number,
+			ti.Episode.Title, ti.Show.Year)
+	case "show":
+		return fmt.Sprintf("%s (%04d)", ti.Show.Title, ti.Show.Year)
+	}
+	return fmt.Sprintf("Unknown media type: %q\n", ti.Type)
+}
+
+func (ti TraktItem) Match(guess Guess) bool {
+	switch guess.Type {
+	case "movie":
+		if guess.Year == 0 || ti.Movie.Year == guess.Year {
+			return true
+		}
+	// case "episode":
+	// 	if ti.Episode.Season == guess.Season &&
+	// 		ti.Episode.Number == guess.Episode {
+	// 		if guess.Year == 0 || ti.Show.Year == guess.Year {
+	// 			return true
+	// 		}
+	// 	}
+	case "episode", "show":
+		if guess.Year == 0 || ti.Show.Year == guess.Year {
+			return true
+		}
+	}
+	return false
+}
+
+type ScrobbleItem struct {
+	TraktItem
+	Progress float64 `json:"progress,omitempty"`
+}
+
+// FIXME: not implemented yet
+func (c *APIClient) TraktScrobble(item ScrobbleItem) (ti TraktItem, err error) {
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodPost,
+		path:   fmt.Sprintf("/scrobble/start"),
+		body:   item,
+		auth:   true,
+	})
+	if err != nil {
+		return TraktItem{}, err
+	}
+	defer httpResp.Body.Close()
+
+	return
 }

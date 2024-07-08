@@ -1,0 +1,48 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/angristan/trakt-cli/api"
+	"github.com/dexterlb/mpvipc"
+	"github.com/spf13/cobra"
+)
+
+var scrobbleCmd = &cobra.Command{
+	Use:   "scrobble",
+	Short: "start scrobbling to trakt.tv",
+	Long:  "Start scrobbling to trakt.tv.",
+	Run: func(cmd *cobra.Command, args []string) {
+		// FIXME: fetch from ~/.config/mpv/mpv.conf:input-ipc-server
+		conn := mpvipc.NewConnection("/tmp/mpvsocket")
+		err := conn.Open()
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer conn.Close()
+		client := api.NewAPIClient()
+		//		events, stopListening := conn.NewEventListener()
+
+		path, err := conn.Get("path")
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("current file playing: %s", path)
+		guess, err := api.Guessit(fmt.Sprint(path))
+		if err != nil {
+			log.Fatal(err)
+		}
+		tresp, err := client.TraktSearch(guess)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, item := range tresp {
+			log.Printf("found: %s\n", item)
+		}
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(scrobbleCmd)
+}

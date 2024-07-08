@@ -12,6 +12,11 @@ require (
 )
 
 require (
+	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37 // indirect
+	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+)
+
+require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
