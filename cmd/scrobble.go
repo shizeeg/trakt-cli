@@ -22,7 +22,6 @@ var scrobbleCmd = &cobra.Command{
 		}
 		defer conn.Close()
 		client := api.NewAPIClient()
-		//		events, stopListening := conn.NewEventListener()
 
 		path, err := conn.Get("path")
 		if err != nil {
@@ -39,6 +38,20 @@ var scrobbleCmd = &cobra.Command{
 		}
 		for _, item := range tresp {
 			log.Printf("found: %s\n", item)
+			err = conn.Set("force-media-title", item.String())
+			if err != nil {
+				log.Println(err)
+			}
+			break
+		}
+		events, stopListening := conn.NewEventListener()
+		// close when connection dissapeares
+		go func() {
+			conn.WaitUntilClosed()
+			stopListening <- struct{}{}
+		}()
+		for ev := range events {
+			log.Printf("mpv: %q\n", ev.Name)
 		}
 	},
 }
