@@ -332,6 +332,16 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 	return resp, nil
 }
 
+type TraktMovie struct {
+	Title string `json:"title,omitempty"`
+	Year  int    `json:"year,omitempty"`
+	Ids   struct {
+		Trakt int    `json:"trakt,omitempty"`
+		Slug  string `json:"slug,omitempty"`
+		Imdb  string `json:"imdb,omitempty"`
+		Tmdb  int    `json:"tmdb,omitempty"`
+	} `json:"ids,omitempty"`
+}
 type TraktShow struct {
 	Title string `json:"title,omitempty"`
 	Year  int    `json:"year,omitempty"`
@@ -451,21 +461,12 @@ func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
 type TraktResponse []TraktItem
 
 type TraktItem struct {
-	Type     string  `json:"type,omitempty"`
-	Score    float64 `json:"score,omitempty"`
-	Progress float64 `json:"progress,omitempty"`
-	Movie    struct {
-		Title string `json:"title,omitempty"`
-		Year  int    `json:"year,omitempty"`
-		Ids   struct {
-			Trakt int    `json:"trakt,omitempty"`
-			Slug  string `json:"slug,omitempty"`
-			Imdb  string `json:"imdb,omitempty"`
-			Tmdb  int    `json:"tmdb,omitempty"`
-		} `json:"ids,omitempty"`
-	} `json:"movie,omitempty"`
-	Episode TraktEpisode `json:"episode,omitempty"`
-	Show    TraktShow    `json:"show,omitempty"`
+	Type     string       `json:"type,omitempty"`
+	Score    float64      `json:"score,omitempty"`
+	Progress float64      `json:"progress,omitempty"`
+	Episode  TraktEpisode `json:"episode,omitempty"`
+	Show     TraktShow    `json:"show,omitempty"`
+	Movie    TraktMovie   `json:"movie,omitempty"`
 }
 
 func (ti TraktItem) String() string {
@@ -506,8 +507,15 @@ func (ti TraktItem) Match(guess Guess) bool {
 }
 
 type ScrobbleItem struct {
-	TraktItem
+	Item     TraktItem
+	ID       int     `json:"id,omitempty"`
+	Action   string  `json:"action,omitempty"`
 	Progress float64 `json:"progress,omitempty"`
+	Sharing  struct {
+		Twitter  bool `json:"twitter,omitempty"`
+		Mastodon bool `json:"mastodon,omitempty"`
+		Tumblr   bool `json:"tumblr,omitempty"`
+	} `json:"sharing,omitempty"`
 }
 
 // FIXME: not implemented yet
@@ -519,9 +527,19 @@ func (c *APIClient) TraktScrobble(item ScrobbleItem) (ti TraktItem, err error) {
 		auth:   true,
 	})
 	if err != nil {
+		log.Fatalln(err)
 		return TraktItem{}, err
 	}
 	defer httpResp.Body.Close()
 
+	if httpResp.StatusCode == 201 {
+		err = json.NewDecoder(httpResp.Body).Decode(&ti)
+		fmt.Println(ti.Episode.Title)
+		if err != nil {
+			return
+		}
+	} else {
+		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+	}
 	return
 }
