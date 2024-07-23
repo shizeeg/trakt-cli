@@ -5,12 +5,17 @@ github.com/adrg/xdg/internal/pathutil
 # github.com/briandowns/spinner v1.18.1
 ## explicit; go 1.14
 github.com/briandowns/spinner
+# github.com/clarketm/json v1.17.1
+## explicit
+github.com/clarketm/json
 # github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37
 ## explicit
 github.com/dexterlb/mpvipc
 # github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
+# github.com/go-json-experiment/json v0.0.0-20240524174822-2d9f40f7385b
+## explicit; go 1.22
 # github.com/inconshreveable/mousetrap v1.0.0
 ## explicit
 github.com/inconshreveable/mousetrap

@@ -5,16 +5,15 @@ go 1.17
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/briandowns/spinner v1.18.1
+	github.com/clarketm/json v1.17.1
+	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37
 	github.com/jedib0t/go-pretty/v6 v6.2.7
 	github.com/mergestat/timediff v0.0.3
 	github.com/muesli/termenv v0.11.0
 	github.com/spf13/cobra v1.3.0
 )
 
-require (
-	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37 // indirect
-	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
-)
+require gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 
 require (
 	github.com/fatih/color v1.13.0 // indirect

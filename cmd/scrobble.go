@@ -51,8 +51,9 @@ var scrobbleCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		currentItem := api.TraktItem{}
+		scrobbleItem := api.ScrobbleItem{}
 		for _, item := range tresp {
-			log.Printf("found: [%d] %s\n", item.Episode.Ids.Trakt, item)
+			log.Printf("found %q %s\n", item.Type, item)
 			currentItem = item
 			if err != nil {
 				log.Fatal(err)
@@ -65,23 +66,62 @@ var scrobbleCmd = &cobra.Command{
 		}
 		tick := time.Tick(time.Second * 5)
 
-		_, mpvClosed := conn.NewEventListener()
-		for /* conn.IsClosed() */ {
-			select {
-			case <-mpvClosed:
-				log.Println("thanks for watching!")
-				break
-			case <-tick:
-				si, err := client.TraktScrobble(api.ScrobbleItem{
-					Progress: mpvTimePos(),
-					Item:     currentItem})
-				if err != nil {
-					log.Fatalln(err)
-				}
-				log.Printf("[%v] %.02f %q", err, si.Progress, currentItem.Episode.Title)
-			default:
-				time.Sleep(time.Microsecond * 50)
+		events, mpvClosed := conn.NewEventListener()
+		go func() {
+			for !conn.IsClosed() {
+				select {
+				case <-mpvClosed:
+					si, err := client.TraktScrobbleStop(currentItem)
+					if err != nil {
+						log.Fatalln(err)
+					}
+					log.Printf("thanks for watching %s\n", si)
+					break
+				case <-tick:
+					currentItem.Progress = mpvTimePos()
+					isPaused, err := conn.Get("pause")
+					if err != nil {
+						log.Println(err)
+					}
+					if !isPaused.(bool) { //FIXME: 409 Trakt Conflict
+						// if scrobbleItem.Progress >= 80 {
+						// 	client.TraktScrobbleStop(currentItem)
+						// 	log.Fatalf("scrobbling is done!")
+						// }
+						scrobbleItem, err = client.TraktScrobbleStart(currentItem)
+						if err != nil {
+							log.Fatalln(err)
+						}
 
+						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+					} else {
+						if scrobbleItem.Action != "stop" && scrobbleItem.Action != "pause" {
+							scrobbleItem, err = client.TraktScrobbleStop(currentItem)
+							if err != nil {
+								log.Fatalln(err)
+							}
+							log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						}
+					}
+
+				default:
+					time.Sleep(time.Microsecond * 50)
+				}
+			}
+		}()
+		for ev := range events {
+			switch ev.Name {
+			case "playback-restart":
+				if scrobbleItem.Action == "start" {
+					// client.TraktScrobbleStop(currentItem)
+					// time.Sleep(time.Second * 5)
+					// client.TraktScrobbleStart(currentItem)
+					currentItem.Progress = mpvTimePos()
+				}
+			case "end-file":
+				client.TraktScrobbleStop(currentItem)
+			default:
+				log.Printf("mpv: %q\n", ev.Name)
 			}
 		}
 		// events, stopListening := conn.NewEventListener()

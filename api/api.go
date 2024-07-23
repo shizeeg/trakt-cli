@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
+	"github.com/clarketm/json"
 	"gopkg.in/yaml.v3"
 )
 
@@ -352,14 +352,13 @@ type TraktShow struct {
 		Imdb  string `json:"imdb,omitempty"`
 		Tmdb  int    `json:"tmdb,omitempty"`
 		// Tvrage string `json:"tvrage,omitempty"`
-	}
+	} `json:"ids,omitempty"`
 }
 type TraktEpisode struct {
-	Progress float64 `json:"progress,omitempty"`
-	Season   int     `json:"season,omitempty"`
-	Number   int     `json:"number,omitempty"`
-	Title    string  `json:"title,omitempty"`
-	Ids      struct {
+	Season int    `json:"season,omitempty"`
+	Number int    `json:"number,omitempty"`
+	Title  string `json:"title,omitempty"`
+	Ids    struct {
 		Trakt int    `json:"trakt,omitempty"`
 		Tvdb  int    `json:"tvdb,omitempty"`
 		Imdb  string `json:"imdb,omitempty"`
@@ -399,7 +398,7 @@ func (c *APIClient) EpisodeSummary(showID string, season int, episode int) (resp
 			log.Fatal(err)
 		}
 	} else {
-		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+		log.Printf("EpisodeSummary %q/%d/%d | [ERR: %d] Trakt: %q\n", showID, season, episode, httpResp.StatusCode, httpResp.Status)
 	}
 	return
 }
@@ -407,7 +406,7 @@ func (c *APIClient) EpisodeSummary(showID string, season int, episode int) (resp
 func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err error) {
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
-		path:   fmt.Sprintf("/search/%s?query=%s", mediaType, query),
+		path:   fmt.Sprintf("/search/%s?fields=title&query=%s", mediaType, query),
 		body:   nil,
 		auth:   true,
 	})
@@ -422,7 +421,8 @@ func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err
 			return resp, err
 		}
 	} else {
-		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+		fmt.Printf("Query: [%q] %s\n", mediaType, query)
+		log.Fatalf("TraktQuery | [ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
 	}
 	return resp, nil
 }
@@ -461,7 +461,7 @@ func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
 type TraktResponse []TraktItem
 
 type TraktItem struct {
-	Type     string       `json:"type,omitempty"`
+	Type     string
 	Score    float64      `json:"score,omitempty"`
 	Progress float64      `json:"progress,omitempty"`
 	Episode  TraktEpisode `json:"episode,omitempty"`
@@ -506,8 +506,44 @@ func (ti TraktItem) Match(guess Guess) bool {
 	return false
 }
 
+// func (si *TraktItem) Payload() interface{} {
+// 	switch si.Type {
+// 	case "episode":
+// 		payload := TraktPayload{}
+// 		payload.Episode.Ids = si.Episode.Ids
+// 		payload.Episode.Progress = si.Progress
+// 		return payload.Episode
+// 	case "movie":
+// 		return si.Movie
+// 	}
+// 	return si
+// }
+
+// type TraktPayload struct {
+// 	Episode struct {
+// 		Ids struct {
+// 			Trakt int    `json:"trakt,omitempty"`
+// 			Tvdb  int    `json:"tvdb,omitempty"`
+// 			Imdb  string `json:"imdb,omitempty"`
+// 			Tmdb  int    `json:"tmdb,omitempty"`
+// 			// Tvrage string `json:"tvrage,omitempty"`
+// 		} `json:"ids,omitempty"`
+// 		Progress float64 `json:"progress,omitempty"`
+// 	} `json:"episode,omitempty"`
+// 	Movie struct {
+// 		Ids struct {
+// 			Trakt int    `json:"trakt,omitempty"`
+// 			Tvdb  int    `json:"tvdb,omitempty"`
+// 			Imdb  string `json:"imdb,omitempty"`
+// 			Tmdb  int    `json:"tmdb,omitempty"`
+// 			// Tvrage string `json:"tvrage,omitempty"`
+// 		} `json:"ids,omitempty"`
+// 		Progress float64 `json:"progress,omitempty"`
+// 	} `json:"movie,omitempty"`
+// }
+
 type ScrobbleItem struct {
-	Item     TraktItem
+	TraktItem
 	ID       int     `json:"id,omitempty"`
 	Action   string  `json:"action,omitempty"`
 	Progress float64 `json:"progress,omitempty"`
@@ -518,28 +554,47 @@ type ScrobbleItem struct {
 	} `json:"sharing,omitempty"`
 }
 
-// FIXME: not implemented yet
-func (c *APIClient) TraktScrobble(item ScrobbleItem) (ti TraktItem, err error) {
+func (c *APIClient) TraktScrobbleStart(item TraktItem) (ti ScrobbleItem, err error) {
+	return c.traktScrobble(item, "start")
+}
+func (c *APIClient) TraktScrobbleStop(item TraktItem) (ti ScrobbleItem, err error) {
+	return c.traktScrobble(item, "stop")
+}
+func (c *APIClient) TraktScrobblePause(item TraktItem) (ti ScrobbleItem, err error) {
+	return c.traktScrobble(item, "pause")
+}
+func (c *APIClient) traktScrobble(item TraktItem, verb string) (ti ScrobbleItem, err error) {
+	//DEBUG: dump what we sent to trakt to the terminal
+	fmt.Println(jsonDump(item))
+	//
+
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodPost,
-		path:   fmt.Sprintf("/scrobble/start"),
+		path:   fmt.Sprintf("/scrobble/%s", verb),
 		body:   item,
 		auth:   true,
 	})
 	if err != nil {
 		log.Fatalln(err)
-		return TraktItem{}, err
+		return
 	}
 	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode == 201 {
 		err = json.NewDecoder(httpResp.Body).Decode(&ti)
-		fmt.Println(ti.Episode.Title)
 		if err != nil {
 			return
 		}
 	} else {
-		log.Fatalf("[ERR: %d] Trakt: %q\n", httpResp.StatusCode, httpResp.Status)
+		log.Fatalf("traktScrobble%s | [ERR: %d] Trakt: %q\n", verb, httpResp.StatusCode, httpResp.Status)
 	}
 	return
+}
+
+func jsonDump(v interface{}) string {
+	out, err := json.MarshalIndent(v, "", "   ")
+	if err != nil {
+		log.Fatalf("marshaling error: %s", err)
+	}
+	return string(out)
 }
