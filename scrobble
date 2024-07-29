@@ -1,0 +1,2 @@
+#!/bin/sh
+/usr/bin/go build -v && ./trakt-cli scrobble

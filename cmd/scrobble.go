@@ -83,6 +83,12 @@ var scrobbleCmd = &cobra.Command{
 					if err != nil {
 						log.Println(err)
 					}
+					if currentItem.Progress >= 80 { // we're done
+						if si, err := client.TraktScrobbleStop(currentItem); err == nil {
+							log.Printf("[%s] thanks for watching %s\n", si, si.Action)
+						}
+						return
+					}
 					if !isPaused.(bool) { //FIXME: 409 Trakt Conflict
 						// if scrobbleItem.Progress >= 80 {
 						// 	client.TraktScrobbleStop(currentItem)
