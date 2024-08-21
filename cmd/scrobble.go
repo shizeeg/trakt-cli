@@ -71,11 +71,13 @@ var scrobbleCmd = &cobra.Command{
 			for !conn.IsClosed() {
 				select {
 				case <-mpvClosed:
-					si, err := client.TraktScrobbleStop(currentItem)
-					if err != nil {
-						log.Fatalln(err)
+					if isPaused, _ := conn.Get("pause"); !isPaused.(bool) {
+						si, err := client.TraktScrobbleStop(currentItem)
+						if err != nil {
+							log.Fatalln(err)
+						}
+						log.Printf("thanks for watching %s\n", si)
 					}
-					log.Printf("thanks for watching %s\n", si)
 					break
 				case <-tick:
 					currentItem.Progress = mpvTimePos()
@@ -84,8 +86,8 @@ var scrobbleCmd = &cobra.Command{
 						log.Println(err)
 					}
 					if currentItem.Progress >= 80 { // we're done
-						if si, err := client.TraktScrobbleStop(currentItem); err == nil {
-							log.Printf("[%s] thanks for watching %s\n", si, si.Action)
+						if _, err := client.TraktScrobbleStop(currentItem); err == nil {
+							log.Printf("thanks for watching %s\n", currentItem)
 						}
 						return
 					}
