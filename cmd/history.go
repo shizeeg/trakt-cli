@@ -81,7 +81,7 @@ var historyCmd = &cobra.Command{
 
 		t.Render()
 
-		fmt.Printf("Page %s out of %s, %s items in total", pagination.Page, pagination.PageCount, pagination.ItemCount)
+		fmt.Printf("Page %s out of %s, %s items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
 
 	},
 }
