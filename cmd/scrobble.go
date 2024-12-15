@@ -10,17 +10,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const mpvsocket = "/tmp/mpvsocket"
+
 var scrobbleCmd = &cobra.Command{
 	Use:   "scrobble",
 	Short: "start scrobbling to trakt.tv",
 	Long:  "Start scrobbling to trakt.tv.",
 	Run: func(cmd *cobra.Command, args []string) {
 		// FIXME: fetch from ~/.config/mpv/mpv.conf:input-ipc-server
-		conn := mpvipc.NewConnection("/tmp/mpvsocket")
-		err := conn.Open()
-		if err != nil {
-			log.Fatal(err)
+		conn := mpvipc.NewConnection(mpvsocket)
+		log.Printf("trying to connect to %q\n", mpvsocket)
+		// waiting on mpv...
+		for conn.Open() != nil {
+			time.Sleep(5 * time.Second)
 		}
+
 		defer conn.Close()
 		client := api.NewAPIClient()
 		mpvTimePos := func() float64 {
@@ -64,20 +68,18 @@ var scrobbleCmd = &cobra.Command{
 			}
 			break
 		}
-		tick := time.Tick(time.Second * 5)
+		tick := time.Tick(time.Minute)
 
 		events, mpvClosed := conn.NewEventListener()
 		go func() {
+			defer func() {
+				if _, err := client.TraktScrobbleStop(currentItem); err == nil {
+					log.Printf("thanks for watching %s\n", currentItem)
+				}
+			}()
 			for !conn.IsClosed() {
 				select {
 				case <-mpvClosed:
-					if isPaused, _ := conn.Get("pause"); !isPaused.(bool) {
-						si, err := client.TraktScrobbleStop(currentItem)
-						if err != nil {
-							log.Fatalln(err)
-						}
-						log.Printf("thanks for watching %s\n", si)
-					}
 					break
 				case <-tick:
 					currentItem.Progress = mpvTimePos()
@@ -85,17 +87,7 @@ var scrobbleCmd = &cobra.Command{
 					if err != nil {
 						log.Println(err)
 					}
-					if currentItem.Progress >= 80 { // we're done
-						if _, err := client.TraktScrobbleStop(currentItem); err == nil {
-							log.Printf("thanks for watching %s\n", currentItem)
-						}
-						return
-					}
-					if !isPaused.(bool) { //FIXME: 409 Trakt Conflict
-						// if scrobbleItem.Progress >= 80 {
-						// 	client.TraktScrobbleStop(currentItem)
-						// 	log.Fatalf("scrobbling is done!")
-						// }
+					if !isPaused.(bool) {
 						scrobbleItem, err = client.TraktScrobbleStart(currentItem)
 						if err != nil {
 							log.Fatalln(err)
@@ -103,13 +95,15 @@ var scrobbleCmd = &cobra.Command{
 
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
 					} else {
-						if scrobbleItem.Action != "stop" && scrobbleItem.Action != "pause" {
-							scrobbleItem, err = client.TraktScrobbleStop(currentItem)
-							if err != nil {
-								log.Fatalln(err)
-							}
-							log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						if currentItem.Progress >= 80 { // we're done, TraktScrobbleStop() returns an empty Item so we discard it.
+							break
 						}
+						scrobbleItem, err = client.TraktScrobbleStop(currentItem)
+						if err != nil {
+							log.Fatalln(err)
+						}
+						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						break
 					}
 
 				default:
@@ -121,26 +115,16 @@ var scrobbleCmd = &cobra.Command{
 			switch ev.Name {
 			case "playback-restart":
 				if scrobbleItem.Action == "start" {
-					// client.TraktScrobbleStop(currentItem)
-					// time.Sleep(time.Second * 5)
-					// client.TraktScrobbleStart(currentItem)
 					currentItem.Progress = mpvTimePos()
 				}
 			case "end-file":
-				client.TraktScrobbleStop(currentItem)
+				if scrobbleItem.Action == "playing" {
+					client.TraktScrobbleStop(currentItem)
+				}
 			default:
 				log.Printf("mpv: %q\n", ev.Name)
 			}
 		}
-		// events, stopListening := conn.NewEventListener()
-		// // close when connection dissapeares
-		// go func() {
-		// 	conn.WaitUntilClosed()
-		// 	stopListening <- struct{}{}
-		// }()
-		// for ev := range events {
-		// 	log.Printf("mpv: %q\n", ev.Name)
-		// }
 	},
 }
 
