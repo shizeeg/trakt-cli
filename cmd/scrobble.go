@@ -74,7 +74,9 @@ var scrobbleCmd = &cobra.Command{
 		go func() {
 			defer func() {
 				if _, err := client.TraktScrobbleStop(currentItem); err == nil {
-					log.Printf("thanks for watching %s\n", currentItem)
+					if currentItem.Progress >= 80 {
+						log.Printf("thanks for watching %s\n", currentItem)
+					}
 				}
 			}()
 			for !conn.IsClosed() {
@@ -96,7 +98,7 @@ var scrobbleCmd = &cobra.Command{
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
 					} else {
 						if currentItem.Progress >= 80 { // we're done, TraktScrobbleStop() returns an empty Item so we discard it.
-							break
+							return
 						}
 						scrobbleItem, err = client.TraktScrobbleStop(currentItem)
 						if err != nil {
