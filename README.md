@@ -62,3 +62,12 @@ You can now log in with the CLI:
 Please go to https://trakt.tv/activate and enter the following code: XXXXXXXX
 Successfully authenticated, creds written to ~/.trakt.yaml
 ```
+```
+open https://discord.com/developers/applications?new_application=true
+in your web browser, create a new App (the name will be shown as presense),
+copy "ApplicationID" number add a line in your config:
+`discord-appid: <your_number>`
+save the file.
+```
+## TODO:
+~ Discord Rich Presense: fix time. try to use `conn.Get("time-remaining")`

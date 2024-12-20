@@ -7,10 +7,14 @@ import (
 
 	"github.com/angristan/trakt-cli/api"
 	"github.com/dexterlb/mpvipc"
+	discord "github.com/hugolgst/rich-go/client"
 	"github.com/spf13/cobra"
 )
 
 const mpvsocket = "/tmp/mpvsocket"
+
+var discordAppID string
+var now = time.Now()
 
 var scrobbleCmd = &cobra.Command{
 	Use:   "scrobble",
@@ -27,6 +31,7 @@ var scrobbleCmd = &cobra.Command{
 
 		defer conn.Close()
 		client := api.NewAPIClient()
+		discordAppID = client.Credentials.DiscordAppID
 		mpvTimePos := func() float64 {
 			dur, err := conn.Get("duration/full")
 			if err != nil {
@@ -69,7 +74,12 @@ var scrobbleCmd = &cobra.Command{
 			break
 		}
 		tick := time.Tick(time.Minute)
-
+		if pos, err := conn.Get("time-pos/full"); err == nil {
+			remaining, _ := time.ParseDuration(fmt.Sprintf("%fs", pos.(float64)))
+			now = time.Now().Add(-remaining)
+		} else {
+			log.Println(err)
+		}
 		events, mpvClosed := conn.NewEventListener()
 		go func() {
 			defer func() {
@@ -80,7 +90,13 @@ var scrobbleCmd = &cobra.Command{
 				}
 			}()
 			for !conn.IsClosed() {
+				currentItem.Progress = mpvTimePos()
+				isPaused, err := conn.Get("pause")
+				if err != nil {
+					log.Println(err)
+				}
 				select {
+
 				case <-mpvClosed:
 					break
 				case <-tick:
@@ -109,7 +125,14 @@ var scrobbleCmd = &cobra.Command{
 					}
 
 				default:
-					time.Sleep(time.Microsecond * 50)
+					time.Sleep(time.Second)
+					if !isPaused.(bool) {
+						if pos, err := conn.Get("time-remaining"); err == nil {
+							if dur, err := conn.Get("duration/full"); err == nil {
+								discordPRC(currentItem, pos.(float64), dur.(float64))
+							}
+						}
+					}
 				}
 			}
 		}()
@@ -132,4 +155,47 @@ var scrobbleCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(scrobbleCmd)
+}
+
+func discordPRC(ti api.TraktItem, position, duration float64) {
+	err := discord.Login(discordAppID)
+	if err != nil {
+		log.Printf("Connect to Discord? I caint! %v\n", err)
+	}
+	remaining, _ := time.ParseDuration(fmt.Sprintf("%fs", position))
+	// start := now.Add(-time.Duration(remaining.Microseconds()))
+	err = discord.SetActivity(discord.Activity{
+		Details: ti.String(),
+		State: fmt.Sprintf("%s / %v",
+			remaining.Truncate(time.Second),
+			time.Unix(int64(duration), 0).UTC().Format("15:04:05")),
+
+		LargeImage: "largeimageid",
+		LargeText:  "This is the large image :D",
+		SmallImage: "smallimageid",
+		SmallText:  "And this is the small image",
+		// Party: &discord.Party {
+		// 	ID:         "-1",
+		// 	Players:    15,
+		// 	MaxPlayers: 24,
+		// },
+		Timestamps: &discord.Timestamps{
+			Start: &now,
+		},
+		// Buttons: []*discord.Button{
+		// 	{
+		// 		Label: "IMDB",
+		// 		Url:   fmt.Sprintf("https://www.imdb.com/title/%s/", ti.Episode.Ids.Imdb),
+		// 	},
+		// },
+	})
+
+	if err != nil {
+		log.Printf("[ERR]: %v\n", err)
+	}
+
+	// Discord will only show the presence if the app is running
+	// Sleep for a few seconds to see the update
+	// fmt.Println("Sleeping...")
+	// time.Sleep(time.Second * 10)
 }

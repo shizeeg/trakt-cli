@@ -27,6 +27,7 @@ type Credentials struct {
 	ClientID     string `yaml:"client-id"`
 	ClientSecret string `yaml:"client-secret"`
 	AccessToken  string `yaml:"access-token"`
+	DiscordAppID string `yaml:"discord-appid"`
 }
 
 // Create a new API client for the given API version.
@@ -178,6 +179,14 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (*AuthDeviceTokenRe
 
 type UserHistory []HistoryItem
 
+type IDs struct {
+	Trakt  int         `json:"trakt"`
+	Slug   string      `json:"slug,omitempty"`
+	Tvdb   interface{} `json:"tvdb"`
+	Imdb   string      `json:"imdb"`
+	Tmdb   int         `json:"tmdb"`
+	Tvrage interface{} `json:"tvrage"`
+}
 type HistoryItem struct {
 	ID        int64     `json:"id"`
 	WatchedAt time.Time `json:"watched_at"`
@@ -186,36 +195,18 @@ type HistoryItem struct {
 	Movie     struct {
 		Title string `json:"title"`
 		Year  int    `json:"year"`
-		Ids   struct {
-			Trakt int    `json:"trakt"`
-			Slug  string `json:"slug"`
-			Imdb  string `json:"imdb"`
-			Tmdb  int    `json:"tmdb"`
-		} `json:"ids"`
+		Ids   IDs    `json:"ids"`
 	} `json:"movie,omitempty"`
 	Episode struct {
 		Season int    `json:"season"`
 		Number int    `json:"number"`
 		Title  string `json:"title"`
-		Ids    struct {
-			Trakt  int         `json:"trakt"`
-			Tvdb   interface{} `json:"tvdb"`
-			Imdb   string      `json:"imdb"`
-			Tmdb   int         `json:"tmdb"`
-			Tvrage interface{} `json:"tvrage"`
-		} `json:"ids"`
+		Ids    IDs    `json:"ids"`
 	} `json:"episode,omitempty"`
 	Show struct {
 		Title string `json:"title"`
 		Year  int    `json:"year"`
-		Ids   struct {
-			Trakt  int         `json:"trakt"`
-			Slug   string      `json:"slug"`
-			Tvdb   int         `json:"tvdb"`
-			Imdb   string      `json:"imdb"`
-			Tmdb   int         `json:"tmdb"`
-			Tvrage interface{} `json:"tvrage"`
-		} `json:"ids"`
+		Ids   IDs    `json:"ids"`
 	} `json:"show,omitempty"`
 }
 
@@ -335,36 +326,18 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 type TraktMovie struct {
 	Title string `json:"title,omitempty"`
 	Year  int    `json:"year,omitempty"`
-	Ids   struct {
-		Trakt int    `json:"trakt,omitempty"`
-		Slug  string `json:"slug,omitempty"`
-		Imdb  string `json:"imdb,omitempty"`
-		Tmdb  int    `json:"tmdb,omitempty"`
-	} `json:"ids,omitempty"`
+	Ids   IDs    `json:"ids,omitempty"`
 }
 type TraktShow struct {
 	Title string `json:"title,omitempty"`
 	Year  int    `json:"year,omitempty"`
-	Ids   struct {
-		Trakt int    `json:"trakt,omitempty"`
-		Slug  string `json:"slug,omitempty"`
-		Tvdb  int    `json:"tvdb,omitempty"`
-		Imdb  string `json:"imdb,omitempty"`
-		Tmdb  int    `json:"tmdb,omitempty"`
-		// Tvrage string `json:"tvrage,omitempty"`
-	} `json:"ids,omitempty"`
+	Ids   IDs    `json:"ids,omitempty"`
 }
 type TraktEpisode struct {
 	Season int    `json:"season,omitempty"`
 	Number int    `json:"number,omitempty"`
 	Title  string `json:"title,omitempty"`
-	Ids    struct {
-		Trakt int    `json:"trakt,omitempty"`
-		Tvdb  int    `json:"tvdb,omitempty"`
-		Imdb  string `json:"imdb,omitempty"`
-		Tmdb  int    `json:"tmdb,omitempty"`
-		// Tvrage string `json:"tvrage,omitempty"`
-	} `json:"ids,omitempty"`
+	Ids    IDs    `json:"ids,omitempty"`
 	// NumberAbs             any       `json:"number_abs,omitempty"`
 	Overview              string    `json:"overview,omitempty"`
 	FirstAired            time.Time `json:"first_aired,omitempty"`
@@ -483,6 +456,21 @@ func (ti TraktItem) String() string {
 		return fmt.Sprintf("%s (%04d)", ti.Show.Title, ti.Show.Year)
 	}
 	return fmt.Sprintf("Unknown media type: %q\n", ti.Type)
+}
+
+func (ti TraktItem) IDs() (ids IDs) {
+	switch ti.Type {
+	case "episode":
+		ids.Trakt = ti.Episode.Ids.Trakt
+		ids.Imdb = ti.Episode.Ids.Imdb
+	case "movie":
+		ids.Trakt = ti.Movie.Ids.Trakt
+		ids.Imdb = ti.Movie.Ids.Imdb
+	case "show":
+		ids.Trakt = ti.Show.Ids.Trakt
+		ids.Imdb = ti.Show.Ids.Imdb
+	}
+	return ids
 }
 
 func (ti TraktItem) Match(guess Guess) bool {

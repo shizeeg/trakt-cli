@@ -7,6 +7,7 @@ require (
 	github.com/briandowns/spinner v1.18.1
 	github.com/clarketm/json v1.17.1
 	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37
+	github.com/hugolgst/rich-go v0.0.0-20240715122152-74618cc1ace2
 	github.com/jedib0t/go-pretty/v6 v6.2.7
 	github.com/mergestat/timediff v0.0.3
 	github.com/muesli/termenv v0.11.0
