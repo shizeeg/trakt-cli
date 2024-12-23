@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/angristan/trakt-cli/api"
@@ -11,19 +13,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const mpvsocket = "/tmp/mpvsocket"
+var (
+	mpvsocket    = "/tmp/mpvsocket"
+	discordAppID string
+	now          = time.Now()
+)
 
-var discordAppID string
-var now = time.Now()
+func Exetute() {
+	if rootCmd.Execute() != nil {
+		os.Exit(1)
+	}
+}
 
 var scrobbleCmd = &cobra.Command{
-	Use:   "scrobble",
+	Use:   filepath.Base(os.Args[0]),
 	Short: "start scrobbling to trakt.tv",
 	Long:  "Start scrobbling to trakt.tv.",
 	Run: func(cmd *cobra.Command, args []string) {
-		// FIXME: fetch from ~/.config/mpv/mpv.conf:input-ipc-server
-		conn := mpvipc.NewConnection(mpvsocket)
+		// we're running by mpv's discord.lua plugin
+		// args[1] == discord-appid
+		// args[2] == mpv socket-path
+		if cmd.Use == "discord" && len(args) >= 2 {
+			for _, arg := range args {
+				if filepath.IsAbs(arg) {
+					mpvsocket = arg
+				}
+			}
+		}
 		log.Printf("trying to connect to %q\n", mpvsocket)
+		conn := mpvipc.NewConnection(mpvsocket)
 		// waiting on mpv...
 		for conn.Open() != nil {
 			time.Sleep(5 * time.Second)
@@ -98,7 +116,7 @@ var scrobbleCmd = &cobra.Command{
 				select {
 
 				case <-mpvClosed:
-					break
+					return
 				case <-tick:
 					currentItem.Progress = mpvTimePos()
 					isPaused, err := conn.Get("pause")
@@ -121,7 +139,7 @@ var scrobbleCmd = &cobra.Command{
 							log.Fatalln(err)
 						}
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
-						break
+						return
 					}
 
 				default:
@@ -154,7 +172,13 @@ var scrobbleCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(scrobbleCmd)
+	if scrobbleCmd.Use == "discord" {
+		rootCmd = scrobbleCmd
+		log.Printf("using %q mode...", rootCmd.Use)
+		rootCmd.Execute()
+	} else {
+		rootCmd.AddCommand(scrobbleCmd)
+	}
 }
 
 func discordPRC(ti api.TraktItem, position, duration float64) {
@@ -170,24 +194,24 @@ func discordPRC(ti api.TraktItem, position, duration float64) {
 			remaining.Truncate(time.Second),
 			time.Unix(int64(duration), 0).UTC().Format("15:04:05")),
 
-		LargeImage: "largeimageid",
-		LargeText:  "This is the large image :D",
-		SmallImage: "smallimageid",
-		SmallText:  "And this is the small image",
+		// LargeImage: "largeimageid",
+		// LargeText:  "This is the large image :D",
+		// SmallImage: "smallimageid",
+		// SmallText:  "And this is the small image",
 		// Party: &discord.Party {
 		// 	ID:         "-1",
 		// 	Players:    15,
 		// 	MaxPlayers: 24,
 		// },
-		Timestamps: &discord.Timestamps{
-			Start: &now,
-		},
-		// Buttons: []*discord.Button{
-		// 	{
-		// 		Label: "IMDB",
-		// 		Url:   fmt.Sprintf("https://www.imdb.com/title/%s/", ti.Episode.Ids.Imdb),
-		// 	},
+		// Timestamps: &discord.Timestamps{
+		// 	Start: &now,
 		// },
+		Buttons: []*discord.Button{
+			{
+				Label: "IMDB",
+				Url:   fmt.Sprintf("https://www.imdb.com/title/%s/", ti.IDs().Imdb),
+			},
+		},
 	})
 
 	if err != nil {
