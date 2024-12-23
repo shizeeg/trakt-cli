@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
-	"github.com/adrg/xdg"
 	"github.com/clarketm/json"
 	"gopkg.in/yaml.v3"
 )
@@ -33,18 +33,19 @@ type Credentials struct {
 // Create a new API client for the given API version.
 func NewAPIClient() APIClient {
 
-	configFile, err := xdg.SearchConfigFile("trakt-cli/config.yaml")
+	xdgConfDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("Failed to read %q file, please run `trakt auth`", configFile)
+		log.Fatalf("Failed to read %q, please run `trakt-cli auth`", xdgConfDir)
 	}
-	config, err := os.ReadFile(configFile)
+	configPath := filepath.Join(xdgConfDir, "trakt-cli", "config.yaml")
+	config, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	var creds Credentials
 	err = yaml.Unmarshal(config, &creds)
 	if err != nil {
-		log.Fatalf("Failed to read %q file, please run `trakt auth`", configFile)
+		log.Fatalf("Failed to read %q file, please run `trakt-cli auth`", configPath)
 	}
 
 	return APIClient{

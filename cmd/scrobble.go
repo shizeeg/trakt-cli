@@ -26,7 +26,7 @@ func Exetute() {
 }
 
 var scrobbleCmd = &cobra.Command{
-	Use:   filepath.Base(os.Args[0]),
+	Use:   "scrobble",
 	Short: "start scrobbling to trakt.tv",
 	Long:  "Start scrobbling to trakt.tv.",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -60,7 +60,6 @@ var scrobbleCmd = &cobra.Command{
 				log.Println(err)
 			}
 			percent := float64(pos.(float64) / dur.(float64) * 100)
-			log.Printf("%f / %f = %.02f%%", dur, pos, percent)
 			return percent
 		}
 
@@ -129,7 +128,7 @@ var scrobbleCmd = &cobra.Command{
 							log.Fatalln(err)
 						}
 
-						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						// log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
 					} else {
 						if currentItem.Progress >= 80 { // we're done, TraktScrobbleStop() returns an empty Item so we discard it.
 							return
@@ -138,7 +137,7 @@ var scrobbleCmd = &cobra.Command{
 						if err != nil {
 							log.Fatalln(err)
 						}
-						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						// log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
 						return
 					}
 
@@ -172,7 +171,7 @@ var scrobbleCmd = &cobra.Command{
 }
 
 func init() {
-	if scrobbleCmd.Use == "discord" {
+	if filepath.Base(os.Args[0]) == "discord" {
 		rootCmd = scrobbleCmd
 		log.Printf("using %q mode...", rootCmd.Use)
 		rootCmd.Execute()

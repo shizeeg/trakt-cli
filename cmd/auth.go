@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/angristan/trakt-cli/api"
 	"github.com/briandowns/spinner"
-	"gopkg.in/yaml.v3"
-
-	"github.com/adrg/xdg"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 type Credentials struct {
@@ -66,17 +65,18 @@ var authCmd = &cobra.Command{
 					log.Fatalf("Error while Marshaling: %v", err)
 				}
 
-				configFile, err := xdg.ConfigFile("trakt-cli/config.yaml")
+				xdgConfDir, err := os.UserConfigDir()
+				configPath := filepath.Join(xdgConfDir, "trakt-cli", "config.yaml")
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = os.WriteFile(configFile, yamlData, 0644)
+				err = os.WriteFile(configPath, yamlData, 0644)
 				if err != nil {
-					log.Printf("Error while writing to file. %v", err)
+					log.Printf("Error while writing to %q. %v", configPath, err)
 				}
 
 				s.Stop()
-				log.Printf("Successfully authenticated, creds written to %q\n", configFile)
+				log.Printf("Successfully authenticated, creds written to %q\n", configPath)
 
 				break
 			}

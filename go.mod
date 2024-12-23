@@ -3,7 +3,6 @@ module github.com/angristan/trakt-cli
 go 1.17
 
 require (
-	github.com/adrg/xdg v0.4.0
 	github.com/briandowns/spinner v1.18.1
 	github.com/clarketm/json v1.17.1
 	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37
@@ -14,7 +13,10 @@ require (
 	github.com/spf13/cobra v1.3.0
 )
 
-require gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+require (
+	github.com/stretchr/testify v1.9.0 // indirect
+	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+)
 
 require (
 	github.com/fatih/color v1.13.0 // indirect
@@ -25,6 +27,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	golang.org/x/sys v0.26.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 )
