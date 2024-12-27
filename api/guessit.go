@@ -33,7 +33,7 @@ func (g Guess) String() string {
 		if g.Year > 0 {
 			return fmt.Sprintf("%s (%04d)\n", g.Title, g.Year)
 		}
-		return fmt.Sprintf("%s", g.Title)
+		return g.Title
 	}
 	return ""
 

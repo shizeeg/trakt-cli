@@ -59,19 +59,9 @@ var historyCmd = &cobra.Command{
 		for _, v := range resp {
 			switch v.Type {
 			case "movie":
-				t.AppendRow([]interface{}{
-					"Movie 🎬",
-					v.Movie.Title,
-					timediff.TimeDiff(v.WatchedAt),
-				})
+				t.AppendRow([]interface{}{"🎬", v, timediff.TimeDiff(v.WatchedAt)})
 			case "episode":
-				p := termenv.ColorProfile()
-				num := termenv.String(fmt.Sprintf("S%02dE%02d", v.Episode.Season, v.Episode.Number)).Foreground(p.Color("#B9BFCA"))
-				t.AppendRow([]interface{}{
-					"TV Show 📺",
-					fmt.Sprintf("%s (%s)", v.Show.Title, num),
-					timediff.TimeDiff(v.WatchedAt),
-				})
+				t.AppendRow([]interface{}{"📺", v, timediff.TimeDiff(v.WatchedAt)})
 			}
 		}
 
@@ -80,8 +70,9 @@ var historyCmd = &cobra.Command{
 		s.Stop()
 
 		t.Render()
-
-		fmt.Printf("Page %s out of %s, %s items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
+		if pagination.ItemCount > 0 {
+			fmt.Printf("Page %d out of %d, %d items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
+		}
 
 	},
 }

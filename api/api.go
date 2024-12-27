@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/clarketm/json"
@@ -217,10 +218,10 @@ type PaginationsParams struct {
 }
 
 type Pagination struct {
-	Page      string `json:"page"`
-	Limit     string `json:"limit"`
-	PageCount string `json:"page_count"`
-	ItemCount string `json:"item_count"`
+	Page      int `json:"page"`
+	Limit     int `json:"limit"`
+	PageCount int `json:"page_count"`
+	ItemCount int `json:"item_count"`
 }
 
 func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (UserHistory, Pagination, error) {
@@ -244,11 +245,15 @@ func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (UserH
 			return nil, Pagination{}, err
 		}
 
+		int_or_zero := func(s string) int {
+			num, _ := strconv.Atoi(httpResp.Header.Get(s))
+			return num
+		}
 		pagination = Pagination{
-			Page:      httpResp.Header.Get("X-Pagination-Page"),
-			Limit:     httpResp.Header.Get("X-Pagination-Limit"),
-			PageCount: httpResp.Header.Get("X-Pagination-Page-Count"),
-			ItemCount: httpResp.Header.Get("X-Pagination-Item-Count"),
+			Page:      int_or_zero("X-Pagination-Page"),
+			Limit:     int_or_zero("X-Pagination-Limit"),
+			PageCount: int_or_zero("X-Pagination-Page-Count"),
+			ItemCount: int_or_zero("X-Pagination-Item-Count"),
 		}
 	}
 
@@ -353,6 +358,15 @@ type TraktEpisode struct {
 
 func (te TraktEpisode) String() string {
 	return fmt.Sprintf("[%d]: %dx%02d %q\n", te.Ids.Trakt, te.Season, te.Number, te.Title)
+}
+func (hi HistoryItem) String() string {
+	switch hi.Type {
+	case "episode":
+		return fmt.Sprintf("%s %dx%02d %q", hi.Show.Title, hi.Episode.Season, hi.Episode.Number, hi.Episode.Title)
+	case "movie":
+		return fmt.Sprintf("%s (%04d)", hi.Movie.Title, hi.Movie.Year)
+	}
+	return "unknown media type " + hi.Type
 }
 
 func (c *APIClient) EpisodeSummary(showID string, season int, episode int) (resp TraktEpisode, err error) {
@@ -554,9 +568,8 @@ func (c *APIClient) TraktScrobblePause(item TraktItem) (ti ScrobbleItem, err err
 }
 func (c *APIClient) traktScrobble(item TraktItem, verb string) (ti ScrobbleItem, err error) {
 	//DEBUG: dump what we sent to trakt to the terminal
-	fmt.Println(jsonDump(item))
+	// fmt.Println(jsonDump(item))
 	//
-
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodPost,
 		path:   fmt.Sprintf("/scrobble/%s", verb),
@@ -565,7 +578,7 @@ func (c *APIClient) traktScrobble(item TraktItem, verb string) (ti ScrobbleItem,
 	})
 	if err != nil {
 		log.Fatalln(err)
-		return
+		return ti, err
 	}
 	defer httpResp.Body.Close()
 
@@ -574,10 +587,20 @@ func (c *APIClient) traktScrobble(item TraktItem, verb string) (ti ScrobbleItem,
 		if err != nil {
 			return
 		}
-	} else {
-		log.Fatalf("traktScrobble%s | [ERR: %d] Trakt: %q\n", verb, httpResp.StatusCode, httpResp.Status)
+		ti.Type = ti.MediaKind()
 	}
 	return
+}
+func (ti *ScrobbleItem) MediaKind() string {
+	if ti.Show.Title != "" && ti.Episode.Number <= 0 {
+		return "show"
+	}
+	if ti.Movie.Title != "" {
+		return "movie"
+	} else if ti.Episode.Number > 0 {
+		return "episode"
+	}
+	return ti.Type
 }
 
 func jsonDump(v interface{}) string {
