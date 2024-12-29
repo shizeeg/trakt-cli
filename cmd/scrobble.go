@@ -87,8 +87,9 @@ var scrobbleCmd = &cobra.Command{
 			err = conn.Set("force-media-title", item.String())
 			if err != nil {
 				log.Println(err)
+			} else {
+				break
 			}
-			break
 		}
 		tick := time.Tick(time.Minute)
 		if pos, err := conn.Get("time-pos/full"); err == nil {
@@ -101,8 +102,9 @@ var scrobbleCmd = &cobra.Command{
 		go func() {
 			defer func() {
 				if _, err := client.TraktScrobbleStop(currentItem); err == nil {
-					if currentItem.Progress >= 80 {
+					if currentItem.Progress >= 80 || scrobbleItem.Action == "scrobble" {
 						log.Printf("thanks for watching %s\n", currentItem)
+						conn.Set("force-media-title", "✓"+scrobbleItem.String())
 					}
 				}
 			}()
@@ -113,7 +115,6 @@ var scrobbleCmd = &cobra.Command{
 					log.Println(err)
 				}
 				select {
-
 				case <-mpvClosed:
 					return
 				case <-tick:
@@ -122,23 +123,22 @@ var scrobbleCmd = &cobra.Command{
 					if err != nil {
 						log.Println(err)
 					}
-					if !isPaused.(bool) {
+					if !isPaused.(bool) && currentItem.Progress < 80 {
 						scrobbleItem, err = client.TraktScrobbleStart(currentItem)
 						if err != nil {
 							log.Fatalln(err)
 						}
-
-						// log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
+						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 					} else {
-						if currentItem.Progress >= 80 { // we're done, TraktScrobbleStop() returns an empty Item so we discard it.
+						// stop at 80% tells Trakt we're done patching
+						if currentItem.Progress >= 80 || scrobbleItem.Action == "start" {
+							scrobbleItem, err = client.TraktScrobbleStop(currentItem)
+							if err != nil {
+								log.Fatalln(err)
+							}
+							log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 							return
 						}
-						scrobbleItem, err = client.TraktScrobbleStop(currentItem)
-						if err != nil {
-							log.Fatalln(err)
-						}
-						// log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, currentItem)
-						return
 					}
 
 				default:
@@ -171,7 +171,7 @@ var scrobbleCmd = &cobra.Command{
 }
 
 func init() {
-	if filepath.Base(os.Args[0]) == "discord" {
+	if filepath.Base(os.Args[0]) == "trakt-"+scrobbleCmd.Use {
 		rootCmd = scrobbleCmd
 		log.Printf("using %q mode...", rootCmd.Use)
 		rootCmd.Execute()

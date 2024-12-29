@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/angristan/trakt-cli/api"
@@ -78,10 +79,14 @@ var historyCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(historyCmd)
-
 	historyCmd.Flags().Int("page", 1, "")
 	historyCmd.Flags().Int("limit", 10, "")
+	if filepath.Base(os.Args[0]) == "trakt-"+historyCmd.Use {
+		log.Printf("using %q mode...", historyCmd.Use)
+		rootCmd = historyCmd
+	} else {
+		rootCmd.AddCommand(historyCmd)
+	}
 
 	// Here you will define your flags and configuration settings.
 
