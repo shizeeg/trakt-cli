@@ -33,7 +33,7 @@ var scrobbleCmd = &cobra.Command{
 		// we're running by mpv's discord.lua plugin
 		// args[1] == discord-appid
 		// args[2] == mpv socket-path
-		if cmd.Use == "discord" && len(args) >= 2 {
+		if cmd.Use == "trakt-scrobble" && len(args) >= 2 {
 			for _, arg := range args {
 				if filepath.IsAbs(arg) {
 					mpvsocket = arg
@@ -62,7 +62,7 @@ var scrobbleCmd = &cobra.Command{
 			percent := float64(pos.(float64) / dur.(float64) * 100)
 			return percent
 		}
-
+	newfile:
 		path, err := conn.Get("path")
 		if err != nil {
 			log.Fatal(err)
@@ -163,6 +163,8 @@ var scrobbleCmd = &cobra.Command{
 				if scrobbleItem.Action == "playing" {
 					client.TraktScrobbleStop(currentItem)
 				}
+			case "file-loaded":
+				goto newfile
 			default:
 				log.Printf("mpv: %q\n", ev.Name)
 			}
