@@ -20,8 +20,7 @@ things might not work
 
 This is a CLI for [trakt.tv](https://trakt.tv) using the [trakt.tv API](https://trakt.docs.apiary.io/).
 
-![](https://user-images.githubusercontent.com/11699655/154494260-d3ff23ec-72b2-45e4-9f39-41f52119621b.png)
-
+![](https://raw.githubusercontent.com/shizeeg/trakt-cli/cfb129a5c6978132326a8191969c5a7f0b503cf1/screenshot.png)
 ## Installation
 
 Grab a binary build from the [releases](https://github.com/shizeeg/trakt-cli/releases).
