@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/angristan/trakt-cli/api"
+	"github.com/shizeeg/trakt-cli/api"
+
 	"github.com/briandowns/spinner"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/mergestat/timediff"

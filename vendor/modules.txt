@@ -1,3 +1,7 @@
+# github.com/shizeeg/trakt-cli
+## explicit; go 1.17
+github.com/shizeeg/trakt-cli/api
+github.com/shizeeg/trakt-cli/cmd
 # github.com/briandowns/spinner v1.18.1
 ## explicit; go 1.14
 github.com/briandowns/spinner

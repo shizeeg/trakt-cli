@@ -10,7 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "trakt-cli",
 	Short: "A nice CLI tool for trakt.tv",
-	Long:  `Source code: https://github.com/angristan/trakt-cli`,
+	Long:  `Source code: https://github.com/shizeeg/trakt-cli`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

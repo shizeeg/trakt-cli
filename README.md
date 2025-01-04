@@ -9,6 +9,14 @@
    ██║   ██║  ██║██║  ██║██║  ██╗   ██║       ╚██████╗███████╗██║
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝        ╚═════╝╚══════╝╚═╝
 ```
+# !!WARNING!! WORK IN PROGRESS
+
+things might not work
+~ scrobbling seems to work fine (further testing needed)
+  the entire scrobbling code is a sketch and has to be refactored.
+
+! Discord Rich Presense code is a mess but it works for me.
+! `trakt-cli mv` does NOT work (it's an experiment and I might remove it)
 
 This is a CLI for [trakt.tv](https://trakt.tv) using the [trakt.tv API](https://trakt.docs.apiary.io/).
 
@@ -16,12 +24,12 @@ This is a CLI for [trakt.tv](https://trakt.tv) using the [trakt.tv API](https://
 
 ## Installation
 
-Grab a binary build from the [releases](https://github.com/angristan/trakt-cli/releases).
+Grab a binary build from the [releases](https://github.com/shizeeg/trakt-cli/releases).
 
 ## Development
 
 ```
-git clone https://github.com/angristan/trakt-cli
+git clone https://github.com/shizeeg/trakt-cli
 cd trakt-cli
 go build
 ```
@@ -30,7 +38,7 @@ go build
 
 ```
 ➜  trakt
-Source code: https://github.com/angristan/trakt-cli
+Source code: https://github.com/shizeeg/trakt-cli
 
 Usage:
   trakt-cli [command]
@@ -71,3 +79,4 @@ save the file.
 ```
 ## TODO:
 ~ Discord Rich Presense: fix time. try to use `conn.Get("time-remaining")`
++ trakt-cli auth doesn't update the expired access-key.

@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/angristan/trakt-cli/api"
+	"github.com/shizeeg/trakt-cli/api"
+
 	"github.com/dexterlb/mpvipc"
 	discord "github.com/hugolgst/rich-go/client"
 	"github.com/spf13/cobra"

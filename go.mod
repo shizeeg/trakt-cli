@@ -1,4 +1,4 @@
-module github.com/angristan/trakt-cli
+module github.com/shizeeg/trakt-cli
 
 go 1.17
 

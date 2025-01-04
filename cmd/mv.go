@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/angristan/trakt-cli/api"
+	"github.com/shizeeg/trakt-cli/api"
+
 	"github.com/spf13/cobra"
 )
 
