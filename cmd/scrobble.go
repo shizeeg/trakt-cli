@@ -12,12 +12,14 @@ import (
 	"github.com/dexterlb/mpvipc"
 	discord "github.com/hugolgst/rich-go/client"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
 	mpvsocket    = "/tmp/mpvsocket"
 	discordAppID string
 	now          = time.Now()
+	isDiscord    bool
 )
 
 func Exetute() {
@@ -131,7 +133,7 @@ var scrobbleCmd = &cobra.Command{
 						}
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 					} else {
-						// stop at 80% tells Trakt we're done patching
+						// stop at 80% tells Trakt we're done watching
 						if currentItem.Progress >= 80 || scrobbleItem.Action == "start" {
 							scrobbleItem, err = client.TraktScrobbleStop(currentItem)
 							if err != nil {
@@ -181,9 +183,14 @@ func init() {
 	} else {
 		rootCmd.AddCommand(scrobbleCmd)
 	}
+	scrobbleCmd.Flags().BoolP("discord", "p", true, "Discord Rich Presence")
+	viper.BindPFlag("discord-rich-presence", scrobbleCmd.Flags().Lookup("discord"))
 }
 
 func discordPRC(ti api.TraktItem, position, duration float64) {
+	if viper.IsSet("discord-rich-presence") {
+		return
+	}
 	err := discord.Login(discordAppID)
 	if err != nil {
 		log.Printf("Connect to Discord? I caint! %v\n", err)
