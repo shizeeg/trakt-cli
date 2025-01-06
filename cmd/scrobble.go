@@ -10,6 +10,7 @@ import (
 	"github.com/shizeeg/trakt-cli/api"
 
 	"github.com/dexterlb/mpvipc"
+	notify "github.com/gen2brain/beeep"
 	discord "github.com/hugolgst/rich-go/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -107,6 +108,7 @@ var scrobbleCmd = &cobra.Command{
 				if _, err := client.TraktScrobbleStop(currentItem); err == nil {
 					if currentItem.Progress >= 80 || scrobbleItem.Action == "scrobble" {
 						log.Printf("thanks for watching %s\n", currentItem)
+						Notify(scrobbleItem)
 						conn.Set("force-media-title", "✓"+scrobbleItem.String())
 					}
 				}
@@ -131,6 +133,7 @@ var scrobbleCmd = &cobra.Command{
 						if err != nil {
 							log.Fatalln(err)
 						}
+						Notify(scrobbleItem)
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 					} else {
 						// stop at 80% tells Trakt we're done watching
@@ -139,6 +142,7 @@ var scrobbleCmd = &cobra.Command{
 							if err != nil {
 								log.Fatalln(err)
 							}
+							Notify(scrobbleItem)
 							log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 							return
 						}
@@ -184,7 +188,9 @@ func init() {
 		rootCmd.AddCommand(scrobbleCmd)
 	}
 	scrobbleCmd.Flags().BoolP("discord", "p", true, "Discord Rich Presence")
+	scrobbleCmd.Flags().BoolP("notifications", "n", true, "show system notifications")
 	viper.BindPFlag("discord-rich-presence", scrobbleCmd.Flags().Lookup("discord"))
+	viper.BindPFlag("notifications", scrobbleCmd.Flags().Lookup("notifications"))
 }
 
 func discordPRC(ti api.TraktItem, position, duration float64) {
@@ -226,9 +232,23 @@ func discordPRC(ti api.TraktItem, position, duration float64) {
 	if err != nil {
 		log.Printf("[ERR]: %v\n", err)
 	}
+}
 
-	// Discord will only show the presence if the app is running
-	// Sleep for a few seconds to see the update
-	// fmt.Println("Sleeping...")
-	// time.Sleep(time.Second * 10)
+func Notify(item api.ScrobbleItem) {
+	var icon string
+	action := ' '
+	switch item.Action {
+	case "start":
+		icon = "play"
+		action = ''
+	case "stop":
+		icon = "stop"
+		action = ''
+	case "scrobble":
+		icon = "done"
+		action = ''
+	}
+	notify.Notify("TraktTV",
+		fmt.Sprintf("%c %s (%.01f%%)", action, item.String(), item.Progress),
+		"assets/"+icon)
 }
