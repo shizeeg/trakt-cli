@@ -200,6 +200,7 @@ func discordPRC(ti api.TraktItem, position, duration float64) {
 	err := discord.Login(discordAppID)
 	if err != nil {
 		log.Printf("Connect to Discord? I caint! %v\n", err)
+		viper.Set("discord-rich-presence", false)
 	}
 	remaining, _ := time.ParseDuration(fmt.Sprintf("%fs", position))
 	// start := now.Add(-time.Duration(remaining.Microseconds()))
