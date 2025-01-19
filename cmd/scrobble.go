@@ -83,7 +83,7 @@ var scrobbleCmd = &cobra.Command{
 		currentItem := api.TraktItem{}
 		scrobbleItem := api.ScrobbleItem{}
 		for _, item := range tresp {
-			log.Printf("found %q %s\n", item.Type, item)
+			log.Printf("found: [%d] %q %s\n", item.IDs().Trakt, item.Type, item)
 			currentItem = item
 			if err != nil {
 				log.Fatal(err)
@@ -137,7 +137,7 @@ var scrobbleCmd = &cobra.Command{
 						log.Printf("[%s] %.02f %s", scrobbleItem.Action, scrobbleItem.Progress, scrobbleItem)
 					} else {
 						// stop at 80% tells Trakt we're done watching
-						if currentItem.Progress >= 80 || scrobbleItem.Action == "start" {
+						if currentItem.Progress >= 80 && scrobbleItem.Action == "start" {
 							scrobbleItem, err = client.TraktScrobbleStop(currentItem)
 							if err != nil {
 								log.Fatalln(err)
