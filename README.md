@@ -16,6 +16,7 @@ things might not work
   the entire scrobbling code is a sketch and has to be refactored.
 
 ! Discord Rich Presense code is a mess but it works for me.
+
 ! `trakt-cli mv` does NOT work (it's an experiment and I might remove it)
 
 This is a CLI for [trakt.tv](https://trakt.tv) using the [trakt.tv API](https://trakt.docs.apiary.io/).
@@ -47,6 +48,7 @@ Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   history     Show your watched history
+  scrobble    start scrobbling to trakt.tv
 
 Flags:
   -h, --help     help for trakt-cli
