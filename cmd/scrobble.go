@@ -109,7 +109,7 @@ var scrobbleCmd = &cobra.Command{
 					if currentItem.Progress >= 80 || scrobbleItem.Action == "scrobble" {
 						log.Printf("thanks for watching %s\n", currentItem)
 						Notify(scrobbleItem)
-						conn.Set("force-media-title", "✓"+scrobbleItem.String())
+						conn.Set("force-media-title", "[scrobbled] "+scrobbleItem.String())
 					}
 				}
 			}()
@@ -249,7 +249,7 @@ func Notify(item api.ScrobbleItem) {
 		icon = "done"
 		action = ''
 	}
-	notify.Notify("TraktTV",
+	notify.NotifyEx("TraktTV",
 		fmt.Sprintf("%c %s (%.01f%%)", action, item.String(), item.Progress),
-		"assets/"+icon)
+		"/usr/share/icons/breeze-dark/actions/16/media-playback-"+icon+".svg", time.Second*2)
 }
