@@ -53,7 +53,7 @@ func NotifyEx(title, message, appIcon string, timeout time.Duration) error {
 
 	err := baloonNotify(title, message, appIcon, false)
 	if err != nil {
-		e := msgNotify(title, message)
+		e := msgNotify(title, message, timeout)
 		if e != nil {
 			return errors.New("beeep: " + err.Error() + "; " + e.Error())
 		}
