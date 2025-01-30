@@ -148,7 +148,7 @@ type AuthDeviceTokenReq struct {
 	ClientSecret string `json:"client_secret"`
 }
 
-type AuthDeviceTokenResp struct {
+type AuthTokenResp struct {
 	AccessToken  string `json:"access_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
@@ -157,8 +157,36 @@ type AuthDeviceTokenResp struct {
 	CreatedAt    int    `json:"created_at"`
 }
 
-func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (*AuthDeviceTokenResp, error) {
-	var resp AuthDeviceTokenResp
+type AuthTokenReq struct {
+	RefreshToken string `json:"refresh_token"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
+	GrantType    string `json:"grant_type"`
+}
+
+func (c *APIClient) RefreshToken(req AuthTokenReq) (resp *AuthTokenResp, err error) {
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodConnect,
+		path:   "/oauth/token",
+		body:   req,
+		auth:   false,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode == 200 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return resp, nil
+}
+
+func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenResp, err error) {
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodPost,
 		path:   "/oauth/device/token",
@@ -177,7 +205,7 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (*AuthDeviceTokenRe
 		}
 	}
 
-	return &resp, nil
+	return resp, nil
 }
 
 type UserHistory []HistoryItem
