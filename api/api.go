@@ -28,6 +28,7 @@ type Credentials struct {
 	ClientID     string `yaml:"client-id"`
 	ClientSecret string `yaml:"client-secret"`
 	AccessToken  string `yaml:"access-token"`
+	RefreshToken string `yaml:"refresh-token"`
 	DiscordAppID string `yaml:"discord-appid"`
 }
 

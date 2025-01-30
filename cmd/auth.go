@@ -18,6 +18,7 @@ type Credentials struct {
 	ClientID     string `yaml:"client-id"`
 	ClientSecret string `yaml:"client-secret"`
 	AccessToken  string `yaml:"access-token"`
+	RefreshToken string `yaml:"refresh-token"`
 }
 
 // authCmd represents the auth command
@@ -59,6 +60,7 @@ var authCmd = &cobra.Command{
 					ClientID:     cmd.Flag("client-id").Value.String(),
 					ClientSecret: cmd.Flag("client-secret").Value.String(),
 					AccessToken:  tokenResp.AccessToken,
+					RefreshToken: tokenResp.RefreshToken,
 				}
 
 				yamlData, err := yaml.Marshal(&creds)
