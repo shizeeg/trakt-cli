@@ -71,11 +71,13 @@ var scrobbleCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("current file playing: %s", path)
-		guess, err := api.Guessit(fmt.Sprint(path))
+		normalizedPath := filepath.Clean(fmt.Sprint(path))
+		///FIXME: (sh!zeeg) handle this gracefully
+		guess, err := api.Guessit(filepath.Base(normalizedPath))
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Printf("current file playing: %s", normalizedPath)
 		tresp, err := client.TraktSearch(guess)
 		if err != nil {
 			log.Fatal(err)
@@ -85,7 +87,7 @@ var scrobbleCmd = &cobra.Command{
 		for _, item := range tresp {
 			log.Printf("found: [%d] %q %s\n", item.IDs().Trakt, item.Type, item)
 			currentItem = item
-			if err != nil {
+			if err != nil || item.String() == "" {
 				log.Fatal(err)
 			}
 			err = conn.Set("force-media-title", item.String())
@@ -251,5 +253,5 @@ func Notify(item api.ScrobbleItem) {
 	}
 	notify.NotifyEx("TraktTV",
 		fmt.Sprintf("%c %s (%.01f%%)", action, item.String(), item.Progress),
-		"/usr/share/icons/breeze-dark/actions/16/media-playback-"+icon+".svg", time.Second*2)
+		"/usr/share/icons/breeze-dark/actions/16/media-playback-"+icon+".svg", time.Second*3)
 }
