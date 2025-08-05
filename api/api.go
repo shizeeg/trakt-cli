@@ -7,12 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/clarketm/json"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
 type APIClient struct {
@@ -25,10 +24,10 @@ type APIClient struct {
 }
 
 type Credentials struct {
-	ClientID     string `yaml:"client-id"`
-	ClientSecret string `yaml:"client-secret"`
-	AccessToken  string `yaml:"access-token"`
-	RefreshToken string `yaml:"refresh-token"`
+	ClientID     string `yaml:"trakt.client-id"`
+	ClientSecret string `yaml:"trakt.client-secret"`
+	AccessToken  string `yaml:"trakt.access-token"`
+	RefreshToken string `yaml:"trakt.refresh-token"`
 	DiscordAppID string `yaml:"discord-appid"`
 }
 
@@ -39,15 +38,13 @@ func NewAPIClient() APIClient {
 	if err != nil {
 		log.Fatalf("Failed to read %q, please run `trakt-cli auth`", xdgConfDir)
 	}
-	configPath := filepath.Join(xdgConfDir, "trakt-cli", "config.yaml")
-	config, err := os.ReadFile(configPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var creds Credentials
-	err = yaml.Unmarshal(config, &creds)
-	if err != nil {
-		log.Fatalf("Failed to read %q file, please run `trakt-cli auth`", configPath)
+
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(xdgConfDir)
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal("Can't read config: ", err)
 	}
 
 	return APIClient{
@@ -58,7 +55,11 @@ func NewAPIClient() APIClient {
 				IdleConnTimeout: 5 * time.Second,
 			},
 		},
-		Credentials: creds,
+		Credentials: Credentials{
+			ClientID:     viper.GetString("trakt.client-id"),
+			ClientSecret: viper.GetString("trakt.client-secret"),
+			AccessToken:  viper.GetString("trakt.access-token"),
+		},
 	}
 }
 
@@ -77,7 +78,7 @@ type AuthDeviceCodeResp struct {
 type requestParams struct {
 	method     string
 	path       string
-	body       interface{}
+	body       any
 	auth       bool
 	pagination PaginationsParams
 }
@@ -133,12 +134,10 @@ func (c *APIClient) AuthDeviceCode(req *AuthDeviceCodeReq) (*AuthDeviceCodeResp,
 		return nil, err
 	}
 	defer httpResp.Body.Close()
-
 	err = json.NewDecoder(httpResp.Body).Decode(&resp)
 	if err != nil {
 		return nil, err
 	}
-
 	return &resp, nil
 }
 
@@ -211,12 +210,12 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenRes
 type UserHistory []HistoryItem
 
 type IDs struct {
-	Trakt  int         `json:"trakt"`
-	Slug   string      `json:"slug,omitempty"`
-	Tvdb   interface{} `json:"tvdb"`
-	Imdb   string      `json:"imdb"`
-	Tmdb   int         `json:"tmdb"`
-	Tvrage interface{} `json:"tvrage"`
+	Trakt  int    `json:"trakt"`
+	Slug   string `json:"slug,omitempty"`
+	Tvdb   any    `json:"tvdb"`
+	Imdb   string `json:"imdb"`
+	Tmdb   int    `json:"tmdb"`
+	Tvrage any    `json:"tvrage"`
 }
 type HistoryItem struct {
 	ID        int64     `json:"id"`

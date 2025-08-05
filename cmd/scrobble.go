@@ -10,8 +10,8 @@ import (
 	"github.com/shizeeg/trakt-cli/api"
 
 	"github.com/dexterlb/mpvipc"
-	notify "github.com/gen2brain/beeep"
 	discord "github.com/hugolgst/rich-go/client"
+	notify "github.com/shizeeg/beeep"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
