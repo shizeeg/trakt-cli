@@ -252,6 +252,6 @@ func Notify(item api.ScrobbleItem) {
 		action = ''
 	}
 	notify.NotifyEx("TraktTV",
-		fmt.Sprintf("%c %s (%.01f%%)", action, item.String(), item.Progress),
+		fmt.Sprintf("%c  %s (%.01f%%)", action, item.String(), item.Progress),
 		"/usr/share/icons/breeze-dark/actions/16/media-playback-"+icon+".svg", time.Second*3)
 }

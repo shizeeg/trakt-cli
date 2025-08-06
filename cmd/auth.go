@@ -18,13 +18,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-//	type Credentials struct {
-//		ClientID     string `yaml:"client-id"`
-//		ClientSecret string `yaml:"client-secret"`
-//		AccessToken  string `yaml:"access-token"`
-//		RefreshToken string `yaml:"refresh-token"`
-//	}
-//
 // authCmd represents the auth command
 var authCmd = &cobra.Command{
 	Use:   "auth",

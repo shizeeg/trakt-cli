@@ -203,7 +203,6 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenRes
 			return nil, err
 		}
 	}
-
 	return resp, nil
 }
 

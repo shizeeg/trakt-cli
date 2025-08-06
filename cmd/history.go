@@ -1,33 +1,26 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"time"
+
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mergestat/timediff"
+	"github.com/spf13/cobra"
 
 	"github.com/shizeeg/trakt-cli/api"
-
-	"github.com/briandowns/spinner"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/mergestat/timediff"
-	"github.com/muesli/termenv"
-	"github.com/spf13/cobra"
 )
 
-// historyCmd represents the history command
-var historyCmd = &cobra.Command{
+var historyTuiCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show your watched history",
 	Long:  `Show your watched history.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := api.NewAPIClient()
-
-		s := spinner.New(spinner.CharSets[2], 100*time.Millisecond)
-		s.Start()
-		s.Prefix = "Loading history... "
-
+		//FIXME: spinner here.
 		settings, err := client.GetUserSettings()
 		if err != nil {
 			log.Fatalf("Failed to get user settings: %v\n", err)
@@ -47,55 +40,107 @@ var historyCmd = &cobra.Command{
 			Limit: limit,
 		})
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatal(err)
 		}
-
-		t := table.NewWriter()
-		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{
-			termenv.String("Type").Bold(),
-			termenv.String("Title").Bold(),
-			termenv.String("Watched").Bold(),
-		})
-		for _, v := range resp {
+		columns := []table.Column{
+			{Title: "TYPE", Width: 5},
+			{Title: "TITLE", Width: 50},
+			{Title: "WATCHED", Width: 10},
+		}
+		rows := make([]table.Row, limit, 4096)
+		for i, v := range resp {
 			switch v.Type {
 			case "movie":
-				t.AppendRow([]interface{}{"🎬", v, timediff.TimeDiff(v.WatchedAt)})
+				rows[i] = table.Row{"🎬", v.String(), timediff.TimeDiff(v.WatchedAt)}
 			case "episode":
-				t.AppendRow([]interface{}{"📺", v, timediff.TimeDiff(v.WatchedAt)})
+				rows[i] = table.Row{"📺", v.String(), timediff.TimeDiff(v.WatchedAt)}
+			}
+
+			if i >= limit {
+				break
 			}
 		}
 
-		t.SetStyle(table.StyleRounded)
+		t := table.New(
+			table.WithColumns(columns),
+			table.WithRows(rows),
+			table.WithFocused(true),
+		)
 
-		s.Stop()
+		s := table.DefaultStyles()
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			Bold(false)
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57")).
+			Bold(false)
+		t.SetStyles(s)
 
-		t.Render()
-		if pagination.ItemCount > 0 {
-			fmt.Printf("Page %d out of %d, %d items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
+		m := modelTable{t}
+		if _, err := tea.NewProgram(m).Run(); err != nil {
+			log.Fatal("Error running program:", err)
 		}
 
+		if pagination.ItemCount > 0 {
+			tea.Printf("Page %d out of %d, %d items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
+		}
 	},
 }
 
 func init() {
-	historyCmd.Flags().Int("page", 1, "")
-	historyCmd.Flags().Int("limit", 10, "")
-	if filepath.Base(os.Args[0]) == "trakt-"+historyCmd.Use {
-		log.Printf("using %q mode...", historyCmd.Use)
-		rootCmd = historyCmd
+	historyTuiCmd.Flags().Int("page", 1, "")
+	historyTuiCmd.Flags().Int("limit", 128, "")
+	if filepath.Base(os.Args[0]) == "trakt-"+historyTuiCmd.Use {
+		log.Printf("using %q mode...", historyTuiCmd.Use)
+		rootCmd = historyTuiCmd
 	} else {
-		rootCmd.AddCommand(historyCmd)
+		rootCmd.AddCommand(historyTuiCmd)
 	}
+}
 
-	// Here you will define your flags and configuration settings.
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// historyCmd.PersistentFlags().String("foo", "", "A help for foo")
+type modelTable struct {
+	table table.Model
+}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// historyCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+func (m modelTable) Init() tea.Cmd { return nil }
+
+func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.table.Columns()[0].Width = (msg.Width / 100) * 6
+		m.table.Columns()[1].Width = (msg.Width / 100) * 90
+		m.table.Columns()[2].Width = (msg.Width / 100) * 12
+		m.table.SetHeight(msg.Height - 6)
+		m.table.SetWidth(msg.Width - 2)
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			if m.table.Focused() {
+				m.table.Blur()
+			} else {
+				m.table.Focus()
+			}
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			return m, tea.Batch(
+				tea.Printf("Let's go to %s!", m.table.SelectedRow()[1]),
+			)
+			// FIXME: implement dinamyc page loading...
+		}
+	}
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
+}
+
+func (m modelTable) View() string {
+	return baseStyle.Render(m.table.View()) + "\n"
 }
