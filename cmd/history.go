@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,7 +23,7 @@ var historyTuiCmd = &cobra.Command{
 	Long:  `Show your watched history.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := api.NewAPIClient()
-		//FIXME: spinner here.
+		// FIXME: spinner here.
 		settings, err := client.GetUserSettings()
 		if err != nil {
 			log.Fatalf("Failed to get user settings: %v\n", err)
@@ -47,13 +50,14 @@ var historyTuiCmd = &cobra.Command{
 			{Title: "TITLE", Width: 50},
 			{Title: "WATCHED", Width: 10},
 		}
-		rows := make([]table.Row, limit, 4096)
+		rows := make([]table.Row, pagination.ItemCount)
 		for i, v := range resp {
 			switch v.Type {
 			case "movie":
 				rows[i] = table.Row{"🎬", v.String(), timediff.TimeDiff(v.WatchedAt)}
 			case "episode":
 				rows[i] = table.Row{"📺", v.String(), timediff.TimeDiff(v.WatchedAt)}
+
 			}
 
 			if i >= limit {
@@ -79,7 +83,7 @@ var historyTuiCmd = &cobra.Command{
 			Bold(false)
 		t.SetStyles(s)
 
-		m := modelTable{t}
+		m := modelTable{t, resp, pagination}
 		if _, err := tea.NewProgram(m).Run(); err != nil {
 			log.Fatal("Error running program:", err)
 		}
@@ -87,6 +91,7 @@ var historyTuiCmd = &cobra.Command{
 		if pagination.ItemCount > 0 {
 			tea.Printf("Page %d out of %d, %d items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
 		}
+		tea.Println("Hello!")
 	},
 }
 
@@ -106,7 +111,9 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type modelTable struct {
-	table table.Model
+	table      table.Model
+	history    api.UserHistory
+	pagination api.Pagination
 }
 
 func (m modelTable) Init() tea.Cmd { return nil }
@@ -116,8 +123,8 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.table.Columns()[0].Width = (msg.Width / 100) * 6
-		m.table.Columns()[1].Width = (msg.Width / 100) * 90
-		m.table.Columns()[2].Width = (msg.Width / 100) * 12
+		m.table.Columns()[1].Width = (msg.Width / 100) * 80
+		m.table.Columns()[2].Width = (msg.Width / 100) * 14
 		m.table.SetHeight(msg.Height - 6)
 		m.table.SetWidth(msg.Width - 2)
 	case tea.KeyMsg:
@@ -131,10 +138,19 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "enter":
+			hitem := m.history[m.table.Cursor()]
+			var url string
+			if hitem.Type == "movie" { // FIXME: should I move the code to api/api.go?
+				url = fmt.Sprintf("https://trakt.tv/movies/%s", hitem.IDs().Slug)
+			} else {
+				url = fmt.Sprintf("https://trakt.tv/shows/%s/seasons/%d/episodes/%d",
+					hitem.IDs().Slug, hitem.Episode.Season, hitem.Episode.Number)
+			}
+			openURL(url)
 			return m, tea.Batch(
-				tea.Printf("Let's go to %s!", m.table.SelectedRow()[1]),
+				tea.Printf("trying to browse: %q...\n", url),
 			)
-			// FIXME: implement dinamyc page loading...
+			// FIXME: implement dynamic page loading...
 		}
 	}
 	m.table, cmd = m.table.Update(msg)
@@ -143,4 +159,24 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m modelTable) View() string {
 	return baseStyle.Render(m.table.View()) + "\n"
+}
+
+// opens url in the default browser
+func openURL(url string) error {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "rundll32"
+		args = []string{"url.dll,FileProtocolHandler", url}
+	case "darwin": // macOS
+		cmd = "open"
+		args = []string{url}
+	default: // Linux, FreeBSD, and the rest..
+		cmd = "xdg-open"
+		args = []string{url}
+	}
+
+	return exec.Command(cmd, args...).Start()
 }

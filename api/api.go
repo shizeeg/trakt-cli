@@ -515,6 +515,24 @@ func (ti TraktItem) IDs() (ids IDs) {
 	return ids
 }
 
+func (ti HistoryItem) IDs() (ids IDs) {
+	switch ti.Type {
+	case "episode":
+		ids.Trakt = ti.Episode.Ids.Trakt
+		ids.Imdb = ti.Episode.Ids.Imdb
+		ids.Slug = ti.Show.Ids.Slug
+	case "movie":
+		ids.Trakt = ti.Movie.Ids.Trakt
+		ids.Imdb = ti.Movie.Ids.Imdb
+		ids.Slug = ti.Movie.Ids.Slug
+	case "show":
+		ids.Trakt = ti.Show.Ids.Trakt
+		ids.Imdb = ti.Show.Ids.Imdb
+		ids.Slug = ti.Show.Ids.Slug
+	}
+	return ids
+}
+
 func (ti TraktItem) Match(guess Guess) bool {
 	switch guess.Type {
 	case "movie":
