@@ -97,7 +97,8 @@ var scrobbleCmd = &cobra.Command{
 				break
 			}
 		}
-		tick := time.Tick(time.Minute)
+		// FIXME: make it into a configurable parameter
+		tick := time.Tick(time.Minute * 5)
 		if pos, err := conn.Get("time-pos/full"); err == nil {
 			remaining, _ := time.ParseDuration(fmt.Sprintf("%fs", pos.(float64)))
 			now = time.Now().Add(-remaining)

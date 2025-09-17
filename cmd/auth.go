@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -76,28 +74,12 @@ func traktAuthenticate(ClientID string, ClientSecret string) (err error) {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
 	rootCmd.AddCommand(authCmd)
-	authCmd.PersistentFlags().String("client-id", "", "")
-	authCmd.PersistentFlags().String("client-secret", "", "")
+	authCmd.PersistentFlags().String("client-id", viper.GetString("trakt.client-id"), "")
+	authCmd.PersistentFlags().String("client-secret", viper.GetString("trakt.client-secret"), "")
+	authCmd.PersistentFlags().Bool("refresh", false, "force to refresh TraktTV access token")
 	viper.BindPFlag("client-id", authCmd.PersistentFlags().Lookup("client-id"))
 	viper.BindPFlag("client-secret", authCmd.PersistentFlags().Lookup("client-secret"))
-}
-
-func initConfig() {
-	xdgConfDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatal("Can't read config directory: ", err)
-	}
-	xdgConfDir = filepath.Join(xdgConfDir, "trakt-cli")
-
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(xdgConfDir)
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal("Can't read config: ", err)
-	}
 }
 
 // UI code
@@ -110,19 +92,20 @@ type model struct {
 }
 
 func initialModel() model {
+	log.Println(viper.GetString("trakt.client-id"))
 	inputs := make([]textinput.Model, 2)
 	inputs[0] = textinput.New()
-	inputs[0].Placeholder = "ClientID"
+	inputs[0].Placeholder = viper.GetString("trakt.client-id")
 	inputs[0].Focus()
 	inputs[0].CharLimit = 70
 	inputs[0].Width = 78
-	inputs[0].Prompt = "> "
+	inputs[0].Prompt = "Client ID: "
 
 	inputs[1] = textinput.New()
-	inputs[1].Placeholder = "ClientSecret"
+	inputs[1].Placeholder = viper.GetString("trakt.client-secret")
 	inputs[1].CharLimit = 70
 	inputs[1].Width = 78
-	inputs[1].Prompt = "> "
+	inputs[1].Prompt = "Client Secret: "
 	// inputs[1].EchoMode = textinput.EchoPassword
 	// inputs[1].EchoCharacter = '•'
 
@@ -130,8 +113,8 @@ func initialModel() model {
 		inputs:       inputs,
 		focused:      0,
 		submitted:    false,
-		clientID:     "",
-		clientSecret: "",
+		clientID:     viper.GetString("trakt.client-id"),
+		clientSecret: viper.GetString("trakt.client-secret"),
 	}
 }
 
@@ -154,11 +137,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			m.nextInput()
+		case tea.KeyCtrlU:
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyShiftTab, tea.KeyCtrlP:
 			m.prevInput()
-		case tea.KeyTab, tea.KeyCtrlN:
+		case tea.KeyTab:
+			//m.submitted = true
+			m.clientID = "hey"
+			m.clientSecret = "boo"
+		case tea.KeyCtrlN:
 			m.nextInput()
 		}
 	}

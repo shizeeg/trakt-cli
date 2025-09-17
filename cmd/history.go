@@ -50,7 +50,7 @@ var historyTuiCmd = &cobra.Command{
 			{Title: "TITLE", Width: 50},
 			{Title: "WATCHED", Width: 10},
 		}
-		rows := make([]table.Row, pagination.ItemCount)
+		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
 			switch v.Type {
 			case "movie":
@@ -91,13 +91,12 @@ var historyTuiCmd = &cobra.Command{
 		if pagination.ItemCount > 0 {
 			tea.Printf("Page %d out of %d, %d items in total\n", pagination.Page, pagination.PageCount, pagination.ItemCount)
 		}
-		tea.Println("Hello!")
 	},
 }
 
 func init() {
 	historyTuiCmd.Flags().Int("page", 1, "")
-	historyTuiCmd.Flags().Int("limit", 128, "")
+	historyTuiCmd.Flags().Int("limit", 64, "")
 	if filepath.Base(os.Args[0]) == "trakt-"+historyTuiCmd.Use {
 		log.Printf("using %q mode...", historyTuiCmd.Use)
 		rootCmd = historyTuiCmd
@@ -122,7 +121,7 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.table.Columns()[0].Width = (msg.Width / 100) * 6
+		m.table.Columns()[0].Width = (msg.Width / 100) * 2
 		m.table.Columns()[1].Width = (msg.Width / 100) * 80
 		m.table.Columns()[2].Width = (msg.Width / 100) * 14
 		m.table.SetHeight(msg.Height - 6)

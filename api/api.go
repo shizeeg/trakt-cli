@@ -59,6 +59,7 @@ func NewAPIClient() APIClient {
 			ClientID:     viper.GetString("trakt.client-id"),
 			ClientSecret: viper.GetString("trakt.client-secret"),
 			AccessToken:  viper.GetString("trakt.access-token"),
+			RefreshToken: viper.GetString("trakt.refresh-token"),
 		},
 	}
 }
@@ -84,6 +85,7 @@ type requestParams struct {
 }
 
 func (c *APIClient) doRequest(params requestParams) (*http.Response, error) {
+request:
 	req, err := http.NewRequest(params.method, c.Endpoint+params.path, nil)
 	if err != nil {
 		return nil, err
@@ -115,10 +117,58 @@ func (c *APIClient) doRequest(params requestParams) (*http.Response, error) {
 	}
 
 	resp, err := c.Client.Do(req)
+	// The Token has expired
+	if resp.StatusCode == 401 {
+		log.Printf("token: %q has expired, trying to get a new one...\n", c.Credentials.AccessToken)
+
+		rresp, err := c.RefreshToken(&AuthTokenReq{
+			RefreshToken: c.Credentials.RefreshToken,
+			ClientID:     c.Credentials.ClientID,
+			ClientSecret: c.Credentials.ClientSecret,
+			RedirectURI:  "urn:ietf:wg:oauth:2.0:oob",
+			GrantType:    "refresh_token",
+		})
+		if err != nil {
+			return nil, err
+		}
+		if rresp.AccessToken == "" || rresp.RefreshToken == "" {
+			log.Fatalf("ERROR: %v: No access or refresh token received\n", err)
+		}
+		log.Printf("[INFO]: we got a new token: %q ⇒ %q\n", c.Credentials.AccessToken, rresp.AccessToken)
+		c.Credentials.AccessToken = rresp.AccessToken
+		c.Credentials.RefreshToken = rresp.RefreshToken
+		viper.Set("trakt.access-token", rresp.AccessToken)
+		viper.Set("trakt.refresh-token", rresp.RefreshToken)
+		viper.WriteConfig()
+		goto request
+
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
+	return resp, nil
+}
+
+func (c *APIClient) RefreshToken(req *AuthTokenReq) (resp AuthTokenResp, err error) {
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodPost,
+		path:   "/oauth/token",
+		body:   req,
+		auth:   false,
+	})
+	if err != nil {
+		return
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode == 200 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			return
+		}
+	}
 	return resp, nil
 }
 
@@ -162,27 +212,6 @@ type AuthTokenReq struct {
 	ClientSecret string `json:"client_secret"`
 	RedirectURI  string `json:"redirect_uri"`
 	GrantType    string `json:"grant_type"`
-}
-
-func (c *APIClient) RefreshToken(req AuthTokenReq) (resp *AuthTokenResp, err error) {
-	httpResp, err := c.doRequest(requestParams{
-		method: http.MethodConnect,
-		path:   "/oauth/token",
-		body:   req,
-		auth:   false,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer httpResp.Body.Close()
-
-	if httpResp.StatusCode == 200 {
-		err = json.NewDecoder(httpResp.Body).Decode(&resp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return resp, nil
 }
 
 func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenResp, err error) {
@@ -484,6 +513,23 @@ type TraktItem struct {
 	Movie    TraktMovie   `json:"movie,omitempty"`
 }
 
+// match on type:
+//
+//	if movie:
+//	  match on title:
+//	    if matches > 1:
+//	      match on year:
+//	       return the 1st match
+//	if season:
+//	  match on season and episode.Number:
+//	    match on Show.Title:
+//	      if matches > 1:
+//	         match on Show.Year
+//	           return 1st match
+func (tr TraktResponse) RankFindNormalizedFold(target Guess) TraktItem {
+	return TraktItem{}
+}
+
 func (ti TraktItem) String() string {
 	switch ti.Type {
 	case "movie":
@@ -518,17 +564,21 @@ func (ti TraktItem) IDs() (ids IDs) {
 func (ti HistoryItem) IDs() (ids IDs) {
 	switch ti.Type {
 	case "episode":
-		ids.Trakt = ti.Episode.Ids.Trakt
-		ids.Imdb = ti.Episode.Ids.Imdb
+		// ids.Trakt = ti.Episode.Ids.Trakt
+		// ids.Imdb = ti.Episode.Ids.Imdb
+		// ids.Slug = ti.Show.Ids.Slug
+		ids = ti.Episode.Ids
 		ids.Slug = ti.Show.Ids.Slug
 	case "movie":
-		ids.Trakt = ti.Movie.Ids.Trakt
-		ids.Imdb = ti.Movie.Ids.Imdb
-		ids.Slug = ti.Movie.Ids.Slug
+		// ids.Trakt = ti.Movie.Ids.Trakt
+		// ids.Imdb = ti.Movie.Ids.Imdb
+		// ids.Slug = ti.Movie.Ids.Slug
+		ids = ti.Movie.Ids
 	case "show":
-		ids.Trakt = ti.Show.Ids.Trakt
-		ids.Imdb = ti.Show.Ids.Imdb
-		ids.Slug = ti.Show.Ids.Slug
+		// ids.Trakt = ti.Show.Ids.Trakt
+		// ids.Imdb = ti.Show.Ids.Imdb
+		// ids.Slug = ti.Show.Ids.Slug
+		ids = ti.Show.Ids
 	}
 	return ids
 }
@@ -648,7 +698,7 @@ func (ti *ScrobbleItem) MediaKind() string {
 	return ti.Type
 }
 
-func jsonDump(v interface{}) string {
+func jsonDump(v any) string {
 	out, err := json.MarshalIndent(v, "", "   ")
 	if err != nil {
 		log.Fatalf("marshaling error: %s", err)

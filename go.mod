@@ -12,6 +12,7 @@ require (
 	github.com/clarketm/json v1.17.1
 	github.com/dexterlb/mpvipc v0.0.0-20230829142118-145d6eabdc37
 	github.com/hugolgst/rich-go v0.0.0-20240715122152-74618cc1ace2
+	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mergestat/timediff v0.0.3
 	github.com/shizeeg/beeep v0.0.0-20250801035300-6f3aa859b117
 	github.com/spf13/cobra v1.3.0

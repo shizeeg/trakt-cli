@@ -1,9 +1,11 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"os/exec"
+
+	"github.com/clarketm/json"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 func Guessit(filename string) (guess Guess, err error) {
@@ -48,4 +50,31 @@ type Guess struct {
 	Episode      int    `json:"episode,omitempty"`
 	Season       int    `json:"season,omitempty"`
 	Year         int    `json:"year,omitempty"`
+}
+
+// match on type:
+//
+//	if movie:
+//	  match on title:
+//	    if matches > 1:
+//	      match on year:
+//	       return the 1st match
+//	if season:
+//	  match on season and episode.Number:
+//	    match on Show.Title:
+//	      if matches > 1:
+//	         match on Show.Year
+//	           return 1st match
+func (g Guess) RankFindNormalizedFold(targets []Guess) fuzzy.Ranks {
+	var ranks fuzzy.Ranks
+	for _, t := range targets {
+		switch g.Type {
+		case "movie":
+		case "episode":
+			if g.Season == t.Season && g.Episode == t.Episode {
+				ranks = fuzzy.RankFindNormalizedFold(g.Title, []string{t.Title})
+			}
+		}
+	}
+	return ranks
 }
