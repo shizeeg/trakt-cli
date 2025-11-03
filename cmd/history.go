@@ -17,6 +17,16 @@ import (
 	"github.com/shizeeg/trakt-cli/api"
 )
 
+func icon(item api.HistoryItem) string {
+	switch item.Type {
+	case "movie":
+		return "🎬"
+	case "episode":
+		return "📺"
+	}
+	return "?"
+}
+
 var historyTuiCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show your watched history",
@@ -52,13 +62,7 @@ var historyTuiCmd = &cobra.Command{
 		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
-			switch v.Type {
-			case "movie":
-				rows[i] = table.Row{"🎬", v.String(), timediff.TimeDiff(v.WatchedAt)}
-			case "episode":
-				rows[i] = table.Row{"📺", v.String(), timediff.TimeDiff(v.WatchedAt)}
-
-			}
+			rows[i] = table.Row{"rating", icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 
 			if i >= limit {
 				break
