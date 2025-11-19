@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,6 +28,10 @@ func icon(item api.HistoryItem) string {
 	return "?"
 }
 
+func rating(r int) string {
+	return strings.Repeat("❤︎", 10-r) + strings.Repeat("♥", r)
+}
+
 var historyTuiCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Show your watched history",
@@ -34,10 +39,6 @@ var historyTuiCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := api.NewAPIClient()
 		// FIXME: spinner here.
-		settings, err := client.GetUserSettings()
-		if err != nil {
-			log.Fatalf("Failed to get user settings: %v\n", err)
-		}
 
 		page, err := cmd.Flags().GetInt("page")
 		if err != nil {
@@ -48,7 +49,7 @@ var historyTuiCmd = &cobra.Command{
 			log.Fatalf("Failed to get limit: %v\n", err)
 		}
 
-		resp, pagination, err := client.GetUserHistory(settings.User.Ids.Slug, api.PaginationsParams{
+		resp, pagination, err := client.GetHistory(api.PaginationsParams{
 			Page:  page,
 			Limit: limit,
 		})
@@ -56,13 +57,13 @@ var historyTuiCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		columns := []table.Column{
-			{Title: "TYPE", Width: 5},
+			{Title: "RATING", Width: 5},
 			{Title: "TITLE", Width: 50},
 			{Title: "WATCHED", Width: 10},
 		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
-			rows[i] = table.Row{"rating", icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			rows[i] = table.Row{rating(v), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 
 			if i >= limit {
 				break

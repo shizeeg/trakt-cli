@@ -280,11 +280,19 @@ type Pagination struct {
 	ItemCount int `json:"item_count"`
 }
 
-func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (UserHistory, Pagination, error) {
-	var resp UserHistory
+func (c *APIClient) GetHistory(params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
+	return c.GetUserHistory("", params)
+}
+
+func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
+	path := "/sync/history"
+	if user != "" {
+		path = fmt.Sprintf("/users/%s/history", user)
+
+	}
 	httpResp, err := c.doRequest(requestParams{
 		method:     http.MethodGet,
-		path:       fmt.Sprintf("/users/%s/history", user),
+		path:       path,
 		body:       nil,
 		auth:       true,
 		pagination: params,
@@ -294,7 +302,6 @@ func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (UserH
 	}
 	defer httpResp.Body.Close()
 
-	var pagination Pagination
 	if httpResp.StatusCode == 200 {
 		err = json.NewDecoder(httpResp.Body).Decode(&resp)
 		if err != nil {
@@ -314,6 +321,46 @@ func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (UserH
 	}
 
 	return resp, pagination, nil
+}
+
+func (c *APIClient) GetRatings(params PaginationsParams) (resp UserRatings, pagination Pagination, err error) {
+	httpResp, err := c.doRequest(requestParams{
+		method:     http.MethodGet,
+		path:       "/sync/ratings",
+		body:       nil,
+		auth:       true,
+		pagination: params,
+	})
+	if err != nil {
+		return nil, Pagination{}, err
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode == 200 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			return nil, Pagination{}, err
+		}
+
+		int_or_zero := func(s string) int {
+			num, _ := strconv.Atoi(httpResp.Header.Get(s))
+			return num
+		}
+		pagination = Pagination{
+			Page:      int_or_zero("X-Pagination-Page"),
+			Limit:     int_or_zero("X-Pagination-Limit"),
+			PageCount: int_or_zero("X-Pagination-Page-Count"),
+			ItemCount: int_or_zero("X-Pagination-Item-Count"),
+		}
+	}
+
+	return resp, pagination, nil
+
+}
+
+type UserRatings []ItemRating
+
+type ItemRating struct {
 }
 
 type UserSettings struct {
@@ -415,6 +462,7 @@ type TraktEpisode struct {
 func (te TraktEpisode) String() string {
 	return fmt.Sprintf("[%d]: %dx%02d %q\n", te.Ids.Trakt, te.Season, te.Number, te.Title)
 }
+
 func (hi HistoryItem) String() string {
 	switch hi.Type {
 	case "episode":
@@ -564,20 +612,11 @@ func (ti TraktItem) IDs() (ids IDs) {
 func (ti HistoryItem) IDs() (ids IDs) {
 	switch ti.Type {
 	case "episode":
-		// ids.Trakt = ti.Episode.Ids.Trakt
-		// ids.Imdb = ti.Episode.Ids.Imdb
-		// ids.Slug = ti.Show.Ids.Slug
 		ids = ti.Episode.Ids
 		ids.Slug = ti.Show.Ids.Slug
 	case "movie":
-		// ids.Trakt = ti.Movie.Ids.Trakt
-		// ids.Imdb = ti.Movie.Ids.Imdb
-		// ids.Slug = ti.Movie.Ids.Slug
 		ids = ti.Movie.Ids
 	case "show":
-		// ids.Trakt = ti.Show.Ids.Trakt
-		// ids.Imdb = ti.Show.Ids.Imdb
-		// ids.Slug = ti.Show.Ids.Slug
 		ids = ti.Show.Ids
 	}
 	return ids
@@ -603,42 +642,6 @@ func (ti TraktItem) Match(guess Guess) bool {
 	}
 	return false
 }
-
-// func (si *TraktItem) Payload() interface{} {
-// 	switch si.Type {
-// 	case "episode":
-// 		payload := TraktPayload{}
-// 		payload.Episode.Ids = si.Episode.Ids
-// 		payload.Episode.Progress = si.Progress
-// 		return payload.Episode
-// 	case "movie":
-// 		return si.Movie
-// 	}
-// 	return si
-// }
-
-// type TraktPayload struct {
-// 	Episode struct {
-// 		Ids struct {
-// 			Trakt int    `json:"trakt,omitempty"`
-// 			Tvdb  int    `json:"tvdb,omitempty"`
-// 			Imdb  string `json:"imdb,omitempty"`
-// 			Tmdb  int    `json:"tmdb,omitempty"`
-// 			// Tvrage string `json:"tvrage,omitempty"`
-// 		} `json:"ids,omitempty"`
-// 		Progress float64 `json:"progress,omitempty"`
-// 	} `json:"episode,omitempty"`
-// 	Movie struct {
-// 		Ids struct {
-// 			Trakt int    `json:"trakt,omitempty"`
-// 			Tvdb  int    `json:"tvdb,omitempty"`
-// 			Imdb  string `json:"imdb,omitempty"`
-// 			Tmdb  int    `json:"tmdb,omitempty"`
-// 			// Tvrage string `json:"tvrage,omitempty"`
-// 		} `json:"ids,omitempty"`
-// 		Progress float64 `json:"progress,omitempty"`
-// 	} `json:"movie,omitempty"`
-// }
 
 type ScrobbleItem struct {
 	TraktItem
@@ -686,6 +689,7 @@ func (c *APIClient) traktScrobble(item TraktItem, verb string) (ti ScrobbleItem,
 	}
 	return
 }
+
 func (ti *ScrobbleItem) MediaKind() string {
 	if ti.Show.Title != "" && ti.Episode.Number <= 0 {
 		return "show"
