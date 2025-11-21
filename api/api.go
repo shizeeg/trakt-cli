@@ -238,33 +238,36 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenRes
 type UserHistory []HistoryItem
 
 type IDs struct {
-	Trakt  int    `json:"trakt"`
+	Trakt  int    `json:"trakt,omitempty"`
 	Slug   string `json:"slug,omitempty"`
-	Tvdb   any    `json:"tvdb"`
-	Imdb   string `json:"imdb"`
-	Tmdb   int    `json:"tmdb"`
-	Tvrage any    `json:"tvrage"`
+	Tvdb   any    `json:"tvdb,omitempty"`
+	Imdb   string `json:"imdb,omitempty"`
+	Tmdb   int    `json:"tmdb,omitempty"`
+	Tvrage any    `json:"tvrage,omitempty"`
 }
+
 type HistoryItem struct {
-	ID        int64     `json:"id"`
-	WatchedAt time.Time `json:"watched_at"`
-	Action    string    `json:"action"`
-	Type      string    `json:"type"`
+	ID        int64     `json:"id,omitempty"`
+	WatchedAt time.Time `json:"watched_at,omitempty"`
+	Action    string    `json:"action,omitempty"`
+	Type      string    `json:"type,omitempty"`
+	RatedAt   time.Time `json:"rated_at,omitempty"`
+	Rating    int       `json:"rating,omitempty"`
 	Movie     struct {
 		Title string `json:"title"`
 		Year  int    `json:"year"`
-		Ids   IDs    `json:"ids"`
+		Ids   IDs    `json:"ids,omitempty"`
 	} `json:"movie,omitempty"`
 	Episode struct {
 		Season int    `json:"season"`
 		Number int    `json:"number"`
 		Title  string `json:"title"`
-		Ids    IDs    `json:"ids"`
+		Ids    IDs    `json:"ids,omitempty"`
 	} `json:"episode,omitempty"`
 	Show struct {
 		Title string `json:"title"`
 		Year  int    `json:"year"`
-		Ids   IDs    `json:"ids"`
+		Ids   IDs    `json:"ids,omitempty"`
 	} `json:"show,omitempty"`
 }
 
@@ -280,8 +283,21 @@ type Pagination struct {
 	ItemCount int `json:"item_count"`
 }
 
-func (c *APIClient) GetHistory(params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
-	return c.GetUserHistory("", params)
+func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
+	resp, pagination, err = c.GetUserHistory("", params)
+	if err != nil {
+		return nil, pagination, err
+	}
+
+	rresp, _, err := c.GetRatings(params)
+	for i, v := range resp {
+		for _, k := range rresp {
+			if k.IDs().Trakt == v.IDs().Trakt {
+				resp[i].Rating = k.Rating
+			}
+		}
+	}
+	return
 }
 
 func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
@@ -323,7 +339,21 @@ func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (resp 
 	return resp, pagination, nil
 }
 
-func (c *APIClient) GetRatings(params PaginationsParams) (resp UserRatings, pagination Pagination, err error) {
+func (c *APIClient) AddRatings() {
+	httpResp, err := c.doRequest(requestParams{
+		method: http.MethodGet,
+		path:   "/sync/ratings",
+		body:   nil,
+		auth:   true,
+	})
+	if err != nil {
+		return
+	}
+	defer httpResp.Body.Close()
+
+}
+
+func (c *APIClient) GetRatings(params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
 	httpResp, err := c.doRequest(requestParams{
 		method:     http.MethodGet,
 		path:       "/sync/ratings",
@@ -361,6 +391,8 @@ func (c *APIClient) GetRatings(params PaginationsParams) (resp UserRatings, pagi
 type UserRatings []ItemRating
 
 type ItemRating struct {
+	Rating int `json:"rating,omitempty"`
+	Ids    IDs `json:"ids,omitempty"`
 }
 
 type UserSettings struct {

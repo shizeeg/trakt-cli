@@ -29,7 +29,13 @@ func icon(item api.HistoryItem) string {
 }
 
 func rating(r int) string {
-	return strings.Repeat("❤︎", 10-r) + strings.Repeat("♥", r)
+	if r > 10 {
+		r = 10
+	}
+	if r < 0 {
+		r = 0
+	}
+	return strings.Repeat("\u2764", r) + strings.Repeat("♥", 10-r)
 }
 
 var historyTuiCmd = &cobra.Command{
@@ -49,21 +55,22 @@ var historyTuiCmd = &cobra.Command{
 			log.Fatalf("Failed to get limit: %v\n", err)
 		}
 
-		resp, pagination, err := client.GetHistory(api.PaginationsParams{
+		resp, pagination, err := client.GetHistoryWithRatings(api.PaginationsParams{
 			Page:  page,
 			Limit: limit,
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		columns := []table.Column{
-			{Title: "RATING", Width: 5},
-			{Title: "TITLE", Width: 50},
-			{Title: "WATCHED", Width: 10},
+			{Title: "RATING", Width: 10},
+			{Title: "TITLE", Width: 51},
+			{Title: "WATCHED", Width: 15},
 		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
-			rows[i] = table.Row{rating(v), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			rows[i] = table.Row{rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 
 			if i >= limit {
 				break
@@ -126,11 +133,11 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.table.Columns()[0].Width = (msg.Width / 100) * 2
-		m.table.Columns()[1].Width = (msg.Width / 100) * 80
-		m.table.Columns()[2].Width = (msg.Width / 100) * 14
+		// m.table.Columns()[0].Width = (msg.Width / 100) * 2
+		// m.table.Columns()[1].Width = (msg.Width / 100) * 50
+		// m.table.Columns()[2].Width = (msg.Width / 100) * 14
 		m.table.SetHeight(msg.Height - 6)
-		m.table.SetWidth(msg.Width - 2)
+		// m.table.SetWidth(msg.Width - 2)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
