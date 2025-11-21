@@ -289,15 +289,21 @@ func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHi
 		return nil, pagination, err
 	}
 
-	rresp, _, err := c.GetRatings(params)
+	usrRatings, _, err := c.GetRatings(params)
+	if err != nil {
+		// we can't get user ratings.
+		// Return History as it is and report the error
+		return resp, pagination, err
+	}
+	// assign rating to every history item
 	for i, v := range resp {
-		for _, k := range rresp {
+		for _, k := range usrRatings {
 			if k.IDs().Trakt == v.IDs().Trakt {
 				resp[i].Rating = k.Rating
 			}
 		}
 	}
-	return
+	return resp, pagination, nil
 }
 
 func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (resp UserHistory, pagination Pagination, err error) {
@@ -339,17 +345,54 @@ func (c *APIClient) GetUserHistory(user string, params PaginationsParams) (resp 
 	return resp, pagination, nil
 }
 
-func (c *APIClient) AddRatings() {
+type RatingResponse struct {
+	Added struct {
+		Episodes int `json:"episodes,omitempty"`
+		Movies   int `json:"movies,omitempty"`
+		Seasons  int `json:"seasons,omitempty"`
+		Shows    int `json:"shows,omitempty"`
+	} `json:"added,omitempty"`
+	NotFound struct {
+		Episodes []any `json:"episodes,omitempty"`
+		Movies   []struct {
+			Ids struct {
+				Imdb string `json:"imdb,omitempty"`
+			} `json:"ids,omitempty"`
+			Rating int `json:"rating,omitempty"`
+		} `json:"movies,omitempty"`
+		Seasons []any `json:"seasons,omitempty"`
+		Shows   []any `json:"shows,omitempty"`
+	} `json:"not_found,omitempty"`
+}
+
+type UserRatings []ItemRating
+
+type ItemRating struct {
+	Rating   int            `json:"rating"`
+	RatedAt  time.Time      `json:"rated_at,omitempty"`
+	Movies   []TraktMovie   `json:"movies,omitempty"`
+	Episodes []TraktEpisode `json:"episodes,omitempty"`
+}
+
+func (c *APIClient) AddRatings(ratings UserRatings) (resp RatingResponse, err error) {
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
 		path:   "/sync/ratings",
-		body:   nil,
+		body:   ratings,
 		auth:   true,
 	})
 	if err != nil {
-		return
+		return RatingResponse{}, err
 	}
 	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode == 201 {
+		err = json.NewDecoder(httpResp.Body).Decode(&resp)
+		if err != nil {
+			return RatingResponse{}, err
+		}
+	}
+	return resp, nil
 
 }
 
@@ -386,13 +429,6 @@ func (c *APIClient) GetRatings(params PaginationsParams) (resp UserHistory, pagi
 
 	return resp, pagination, nil
 
-}
-
-type UserRatings []ItemRating
-
-type ItemRating struct {
-	Rating int `json:"rating,omitempty"`
-	Ids    IDs `json:"ids,omitempty"`
 }
 
 type UserSettings struct {
@@ -465,9 +501,11 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 }
 
 type TraktMovie struct {
-	Title string `json:"title,omitempty"`
-	Year  int    `json:"year,omitempty"`
-	Ids   IDs    `json:"ids,omitempty"`
+	Rating  int       `json:"rating,omitempty"`
+	RatedAt time.Time `json:"rated_at,omitempty"`
+	Title   string    `json:"title,omitempty"`
+	Year    int       `json:"year,omitempty"`
+	Ids     IDs       `json:"ids,omitempty"`
 }
 type TraktShow struct {
 	Title string `json:"title,omitempty"`
@@ -483,6 +521,7 @@ type TraktEpisode struct {
 	Overview              string    `json:"overview,omitempty"`
 	FirstAired            time.Time `json:"first_aired,omitempty"`
 	UpdatedAt             time.Time `json:"updated_at,omitempty"`
+	RatedAt               time.Time `json:"rated_at,omitempty"`
 	Rating                int       `json:"rating,omitempty"`
 	Votes                 int       `json:"votes,omitempty"`
 	CommentCount          int       `json:"comment_count,omitempty"`

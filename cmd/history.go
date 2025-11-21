@@ -64,13 +64,13 @@ var historyTuiCmd = &cobra.Command{
 		}
 
 		columns := []table.Column{
-			{Title: "RATING", Width: 10},
-			{Title: "TITLE", Width: 51},
-			{Title: "WATCHED", Width: 15},
+			{Title: "RATING", Width: 12},
+			{Title: "TITLE", Width: 50},
+			{Title: "WATCHED", Width: 14},
 		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
-			rows[i] = table.Row{rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			rows[i] = table.Row{"  " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 
 			if i >= limit {
 				break
@@ -162,6 +162,18 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tea.Printf("trying to browse: %q...\n", url),
 			)
 			// FIXME: implement dynamic page loading...
+		case "left":
+			v := m.history[m.table.Cursor()]
+			v.Rating -= 1
+			m.history[m.table.Cursor()] = v
+			m.table.Rows()[m.table.Cursor()] = table.Row{"* " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.UpdateViewport()
+		case "right":
+			v := m.history[m.table.Cursor()]
+			v.Rating += 1
+			m.history[m.table.Cursor()] = v
+			m.table.Rows()[m.table.Cursor()] = table.Row{"* " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.UpdateViewport()
 		}
 	}
 	m.table, cmd = m.table.Update(msg)
