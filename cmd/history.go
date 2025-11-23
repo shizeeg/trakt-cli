@@ -28,14 +28,36 @@ func icon(item api.HistoryItem) string {
 	return "?"
 }
 
-func rating(r int) string {
-	if r > 10 {
-		r = 10
+func hearts(rating int) string {
+	if rating > 10 {
+		rating = 10
 	}
-	if r < 0 {
-		r = 0
+	if rating < 0 {
+		rating = 0
 	}
-	return strings.Repeat("\u2764", r) + strings.Repeat("♥", 10-r)
+	return strings.Repeat("\u2764", rating) + strings.Repeat("\u2665", 10-rating)
+}
+
+func toRating(item api.HistoryItem) (resp api.UserRatings) {
+	switch item.Type {
+	case "movie":
+		resp.Movies = append(resp.Movies, api.TraktMovie{
+			Rating: item.Rating,
+			Title:  item.Movie.Title,
+			Year:   item.Movie.Year,
+			Ids:    item.Movie.Ids,
+		})
+	case "episode":
+		resp.Episodes = append(resp.Episodes, api.TraktEpisode{
+			Rating: item.Rating,
+			Season: item.Episode.Season,
+			Number: item.Episode.Number,
+			Ids:    item.Episode.Ids,
+		})
+	case "season":
+	case "show":
+	}
+	return resp
 }
 
 var historyTuiCmd = &cobra.Command{
@@ -70,7 +92,7 @@ var historyTuiCmd = &cobra.Command{
 		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
-			rows[i] = table.Row{"  " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			rows[i] = table.Row{"  " + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 
 			if i >= limit {
 				break
@@ -95,7 +117,7 @@ var historyTuiCmd = &cobra.Command{
 			Bold(false)
 		t.SetStyles(s)
 
-		m := modelTable{t, resp, pagination}
+		m := modelTable{client: &client, table: t, history: resp, pagination: pagination, ratings: make(map[int]api.HistoryItem)}
 		if _, err := tea.NewProgram(m).Run(); err != nil {
 			log.Fatal("Error running program:", err)
 		}
@@ -122,8 +144,10 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type modelTable struct {
+	client     *api.APIClient
 	table      table.Model
 	history    api.UserHistory
+	ratings    map[int]api.HistoryItem
 	pagination api.Pagination
 }
 
@@ -133,11 +157,12 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// m.table.Columns()[0].Width = (msg.Width / 100) * 2
-		// m.table.Columns()[1].Width = (msg.Width / 100) * 50
-		// m.table.Columns()[2].Width = (msg.Width / 100) * 14
-		m.table.SetHeight(msg.Height - 6)
-		// m.table.SetWidth(msg.Width - 2)
+		// leave rating column width hard coded for now
+		// m.table.Columns()[0].Width = (msg.Width / 100) * 12
+		m.table.Columns()[1].Width = (msg.Width / 100) * 60
+		m.table.Columns()[2].Width = (msg.Width / 100) * 14
+		m.table.SetHeight(msg.Height - 8)
+		m.table.SetWidth(msg.Width - 8)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
@@ -162,18 +187,42 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				tea.Printf("trying to browse: %q...\n", url),
 			)
 			// FIXME: implement dynamic page loading...
-		case "left":
+		case "left", "h", "-":
 			v := m.history[m.table.Cursor()]
+			if v.Rating <= 0 {
+				return m, cmd
+			}
 			v.Rating -= 1
 			m.history[m.table.Cursor()] = v
-			m.table.Rows()[m.table.Cursor()] = table.Row{"* " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%d ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.ratings[v.IDs().Trakt] = v
 			m.table.UpdateViewport()
-		case "right":
+		case "right", "l", "+":
 			v := m.history[m.table.Cursor()]
+			if v.Rating >= 10 {
+				return m, cmd
+			}
 			v.Rating += 1
 			m.history[m.table.Cursor()] = v
-			m.table.Rows()[m.table.Cursor()] = table.Row{"* " + rating(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%d ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.ratings[v.IDs().Trakt] = v
 			m.table.UpdateViewport()
+		case "S": // sync ratings with traktTV
+			var rPayload = api.UserRatings{}
+			for _, v := range m.history {
+				if v.IDs().Trakt != 0 {
+					r := m.ratings[v.IDs().Trakt]
+					if r.Type != "" {
+						log.Printf("%s", r.Type)
+						rPayload = toRating(r)
+					}
+				}
+			}
+			_, err := m.client.AddRatings(rPayload)
+			if err != nil {
+				log.Printf("WARNING %v: %q\n", err, "unable to sync data to TraktTV")
+			}
+
 		}
 	}
 	m.table, cmd = m.table.Update(msg)

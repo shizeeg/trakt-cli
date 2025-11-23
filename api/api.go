@@ -365,18 +365,14 @@ type RatingResponse struct {
 	} `json:"not_found,omitempty"`
 }
 
-type UserRatings []ItemRating
-
-type ItemRating struct {
-	Rating   int            `json:"rating"`
-	RatedAt  time.Time      `json:"rated_at,omitempty"`
+type UserRatings struct {
 	Movies   []TraktMovie   `json:"movies,omitempty"`
 	Episodes []TraktEpisode `json:"episodes,omitempty"`
 }
 
 func (c *APIClient) AddRatings(ratings UserRatings) (resp RatingResponse, err error) {
 	httpResp, err := c.doRequest(requestParams{
-		method: http.MethodGet,
+		method: http.MethodPost,
 		path:   "/sync/ratings",
 		body:   ratings,
 		auth:   true,
@@ -773,10 +769,22 @@ func (ti *ScrobbleItem) MediaKind() string {
 	return ti.Type
 }
 
-func jsonDump(v any) string {
+func JsonDump(v any) string {
 	out, err := json.MarshalIndent(v, "", "   ")
 	if err != nil {
 		log.Fatalf("marshaling error: %s", err)
 	}
 	return string(out)
+}
+
+func JsonDumpFile(v any, filename string) {
+	out, err := json.MarshalIndent(v, "", "   ")
+	if err != nil {
+		log.Fatalf("marshaling error: %s", err)
+	}
+
+	err = os.WriteFile(filename, out, 0644)
+	if err != nil {
+		log.Fatalf("file write error: %s", err)
+	}
 }
