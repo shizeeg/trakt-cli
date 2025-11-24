@@ -35,27 +35,29 @@ func hearts(rating int) string {
 	if rating < 0 {
 		rating = 0
 	}
-	return strings.Repeat("\u2764", rating) + strings.Repeat("\u2665", 10-rating)
+	return strings.Repeat("\u2665", rating) + strings.Repeat("\u2661", 10-rating)
 }
 
-func toRating(item api.HistoryItem) (resp api.UserRatings) {
-	switch item.Type {
-	case "movie":
-		resp.Movies = append(resp.Movies, api.TraktMovie{
-			Rating: item.Rating,
-			Title:  item.Movie.Title,
-			Year:   item.Movie.Year,
-			Ids:    item.Movie.Ids,
-		})
-	case "episode":
-		resp.Episodes = append(resp.Episodes, api.TraktEpisode{
-			Rating: item.Rating,
-			Season: item.Episode.Season,
-			Number: item.Episode.Number,
-			Ids:    item.Episode.Ids,
-		})
-	case "season":
-	case "show":
+func toRatings(items []api.HistoryItem) (resp api.UserRatings) {
+	for _, it := range items {
+		switch it.Type {
+		case "movie":
+			resp.Movies = append(resp.Movies, api.TraktMovie{
+				Rating: it.Rating,
+				Title:  it.Movie.Title,
+				Year:   it.Movie.Year,
+				Ids:    it.Movie.Ids,
+			})
+		case "episode":
+			resp.Episodes = append(resp.Episodes, api.TraktEpisode{
+				Rating: it.Rating,
+				Season: it.Episode.Season,
+				Number: it.Episode.Number,
+				Ids:    it.Episode.Ids,
+			})
+		case "season":
+		case "show":
+		}
 	}
 	return resp
 }
@@ -159,10 +161,10 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		// leave rating column width hard coded for now
 		// m.table.Columns()[0].Width = (msg.Width / 100) * 12
-		m.table.Columns()[1].Width = (msg.Width / 100) * 60
-		m.table.Columns()[2].Width = (msg.Width / 100) * 14
+		// m.table.Columns()[1].Width = (msg.Width / 100) * 50
+		// m.table.Columns()[2].Width = (msg.Width / 100) * 14
 		m.table.SetHeight(msg.Height - 8)
-		m.table.SetWidth(msg.Width - 8)
+		// m.table.SetWidth(msg.Width - 8)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
@@ -194,7 +196,7 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			v.Rating -= 1
 			m.history[m.table.Cursor()] = v
-			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%d ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%X ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 			m.ratings[v.IDs().Trakt] = v
 			m.table.UpdateViewport()
 		case "right", "l", "+":
@@ -204,20 +206,20 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			v.Rating += 1
 			m.history[m.table.Cursor()] = v
-			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%d ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%X ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 			m.ratings[v.IDs().Trakt] = v
 			m.table.UpdateViewport()
 		case "S": // sync ratings with traktTV
-			var rPayload = api.UserRatings{}
-			for _, v := range m.history {
-				if v.IDs().Trakt != 0 {
-					r := m.ratings[v.IDs().Trakt]
+			var rItems []api.HistoryItem
+			for _, hi := range m.history {
+				if hi.IDs().Trakt != 0 {
+					r := m.ratings[hi.IDs().Trakt]
 					if r.Type != "" {
-						log.Printf("%s", r.Type)
-						rPayload = toRating(r)
+						rItems = append(rItems, r)
 					}
 				}
 			}
+			rPayload := toRatings(rItems)
 			_, err := m.client.AddRatings(rPayload)
 			if err != nil {
 				log.Printf("WARNING %v: %q\n", err, "unable to sync data to TraktTV")
