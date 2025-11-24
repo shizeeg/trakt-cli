@@ -21,7 +21,6 @@ things might not work
 
 This is a CLI for [trakt.tv](https://trakt.tv) using the [trakt.tv API](https://trakt.docs.apiary.io/).
 
-![](https://raw.githubusercontent.com/shizeeg/trakt-cli/cfb129a5c6978132326a8191969c5a7f0b503cf1/screenshot.png)
 ## Installation
 
 Grab a binary build from the [releases](https://github.com/shizeeg/trakt-cli/releases).
@@ -55,6 +54,12 @@ Flags:
 
 Use "trakt-cli [command] --help" for more information about a command.
 ```
+```
+# Usage with trakt-<subcommand> is also possible now:
+
+% trakt-history
+```
+![](https://raw.githubusercontent.com/shizeeg/trakt-cli/refs/heads/trakt-ratings/screenshot.png)
 
 ## Authentication
 
