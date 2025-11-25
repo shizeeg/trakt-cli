@@ -297,8 +297,9 @@ func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHi
 	}
 	// assign rating to every history item
 	for i, v := range resp {
+		hiID := v.IDs().Trakt
 		for _, k := range usrRatings {
-			if k.IDs().Trakt == v.IDs().Trakt {
+			if k.Type == v.Type && hiID == k.IDs().Trakt {
 				resp[i].Rating = k.Rating
 			}
 		}
