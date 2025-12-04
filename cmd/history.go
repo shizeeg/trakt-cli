@@ -35,7 +35,7 @@ func hearts(rating int) string {
 	if rating < 0 {
 		rating = 0
 	}
-	return strings.Repeat("\u2665", rating) + strings.Repeat("\u2661", 10-rating)
+	return strings.Repeat("\u2764", rating) + strings.Repeat("\u2665", 10-rating)
 }
 
 func toRatings(items []api.HistoryItem) (resp api.UserRatings) {
@@ -79,6 +79,12 @@ var historyTuiCmd = &cobra.Command{
 			log.Fatalf("Failed to get limit: %v\n", err)
 		}
 
+		columns := []table.Column{
+			{Title: "RATING", Width: 12},
+			{Title: "TITLE", Width: 50},
+			{Title: "WATCHED", Width: 14},
+		}
+
 		resp, pagination, err := client.GetHistoryWithRatings(api.PaginationsParams{
 			Page:  page,
 			Limit: limit,
@@ -87,11 +93,6 @@ var historyTuiCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		columns := []table.Column{
-			{Title: "RATING", Width: 12},
-			{Title: "TITLE", Width: 50},
-			{Title: "WATCHED", Width: 14},
-		}
 		rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 		for i, v := range resp {
 			rows[i] = table.Row{"  " + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
@@ -188,7 +189,28 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(
 				tea.Printf("trying to browse: %q...\n", url),
 			)
-			// FIXME: implement dynamic page loading...
+		case "down", "pgdn", "j":
+			if m.table.Cursor() >= len(m.table.Rows())-1 {
+				resp, pagination, err := m.client.GetHistoryWithRatings(api.PaginationsParams{
+					Page:  m.pagination.Page + 1,
+					Limit: m.pagination.Limit,
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+				rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
+				for i, v := range resp {
+					rows[i] = table.Row{"  " + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+
+					if i >= pagination.Limit {
+						break
+					}
+				}
+				m.table.SetRows(append(m.table.Rows(), rows[:]...))
+				m.history = append(m.history, resp[:]...)
+				m.pagination = pagination
+
+			}
 		case "left", "h", "-":
 			v := m.history[m.table.Cursor()]
 			if v.Rating <= 0 {
