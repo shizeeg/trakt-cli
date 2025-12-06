@@ -288,8 +288,8 @@ func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHi
 	if err != nil {
 		return nil, pagination, err
 	}
-
-	usrRatings, _, err := c.GetRatings(params)
+	// fetch all user ratings because user might request an arbitrary page from history
+	usrRatings, _, err := c.GetRatings(PaginationsParams{})
 	if err != nil {
 		// we can't get user ratings.
 		// Return History as it is and report the error
