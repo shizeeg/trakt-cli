@@ -28,14 +28,14 @@ func icon(item api.HistoryItem) string {
 	return "?"
 }
 
-func hearts(rating int) string {
+func hearts(rating float64) string {
 	if rating > 10 {
 		rating = 10
 	}
 	if rating < 0 {
 		rating = 0
 	}
-	return strings.Repeat("\u2764", rating) + strings.Repeat("\u2665", 10-rating)
+	return strings.Repeat("\u2764", int(rating)) + strings.Repeat("\u2665", 10-int(rating))
 }
 
 func toRatings(items []api.HistoryItem) (resp api.UserRatings) {
@@ -228,7 +228,7 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			v.Rating += 1
 			m.history[m.table.Cursor()] = v
-			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%X ", v.Rating) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
+			m.table.Rows()[m.table.Cursor()] = table.Row{fmt.Sprintf("%X ", int(v.Rating)) + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}
 			m.ratings[v.IDs().Trakt] = v
 			m.table.UpdateViewport()
 		case "S": // sync ratings with traktTV

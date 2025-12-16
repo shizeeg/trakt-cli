@@ -252,7 +252,7 @@ type HistoryItem struct {
 	Action    string    `json:"action,omitempty"`
 	Type      string    `json:"type,omitempty"`
 	RatedAt   time.Time `json:"rated_at,omitempty"`
-	Rating    int       `json:"rating,omitempty"`
+	Rating    float64   `json:"rating,omitempty"`
 	Movie     struct {
 		Title string `json:"title"`
 		Year  int    `json:"year"`
@@ -498,7 +498,7 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 }
 
 type TraktMovie struct {
-	Rating  int       `json:"rating,omitempty"`
+	Rating  float64   `json:"rating,omitempty"`
 	RatedAt time.Time `json:"rated_at,omitempty"`
 	Title   string    `json:"title,omitempty"`
 	Year    int       `json:"year,omitempty"`
@@ -519,7 +519,7 @@ type TraktEpisode struct {
 	FirstAired            time.Time `json:"first_aired,omitempty"`
 	UpdatedAt             time.Time `json:"updated_at,omitempty"`
 	RatedAt               time.Time `json:"rated_at,omitempty"`
-	Rating                int       `json:"rating,omitempty"`
+	Rating                float64   `json:"rating,omitempty"`
 	Votes                 int       `json:"votes,omitempty"`
 	CommentCount          int       `json:"comment_count,omitempty"`
 	AvailableTranslations []string  `json:"available_translations,omitempty"`
@@ -596,6 +596,7 @@ func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+rerun:
 	for _, item := range resp {
 		if item.Match(guess) {
 			switch item.Type {
@@ -612,8 +613,16 @@ func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
 				// return result, nil
 			case "movie":
 				result = append(result, item)
+			default:
+				log.Fatalf("something weird found: %q", item)
 			}
 		}
+	}
+	// media tagged with wrong year, perhaps?
+	// let's try to find something w/o considering the year
+	if err == nil && len(result) == 0 {
+		guess.Year = 0
+		goto rerun
 	}
 	return result, err
 }
