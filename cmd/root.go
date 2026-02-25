@@ -42,7 +42,7 @@ func init() {
 	if err != nil {
 		confDir, _ = os.UserHomeDir()
 	}
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is %q)", filepath.Join(confDir, APP_NAME, "config.yaml")))
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", fmt.Sprintf("config file (default is %q)", filepath.Join(confDir, APP_NAME, "config.toml")))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -62,7 +62,7 @@ func initConfig() {
 		// Find project subdirectory in $XDG_CONFIG_HOME and set filename to config.yaml
 		viper.AddConfigPath(filepath.Join(xdgCfgDir, APP_NAME))
 		viper.SetConfigName("config")
-		viper.SetConfigType("yaml")
+		viper.SetConfigType("toml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

@@ -86,6 +86,7 @@ var historyTuiCmd = &cobra.Command{
 		}
 
 		resp, pagination, err := client.GetHistoryWithRatings(api.PaginationsParams{
+			// resp, pagination, err := client.GetRatings(api.PaginationsParams{
 			Page:  page,
 			Limit: limit,
 		})
@@ -191,13 +192,20 @@ func (m modelTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 		case "down", "pgdn", "j":
 			if m.table.Cursor() >= len(m.table.Rows())-1 {
-				resp, pagination, err := m.client.GetHistoryWithRatings(api.PaginationsParams{
+				resp, pagination, err := m.client.GetUserHistory("", api.PaginationsParams{
 					Page:  m.pagination.Page + 1,
 					Limit: m.pagination.Limit,
 				})
+				log.Printf("%#v\n%d\n", pagination, len(m.table.Rows()))
 				if err != nil {
 					log.Fatal(err)
 				}
+				// ratings, _, rerr := m.client.GetRatings(api.PaginationsParams{Page: 1, Limit: 100})
+				// if rerr != nil {
+				// 	log.Fatal(err)
+				// }
+				// resp.AssignRatings(ratings)
+
 				rows := make([]table.Row, pagination.Limit, pagination.ItemCount)
 				for i, v := range resp {
 					rows[i] = table.Row{"  " + hearts(v.Rating), icon(v) + " " + v.String(), timediff.TimeDiff(v.WatchedAt)}

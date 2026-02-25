@@ -24,11 +24,11 @@ type APIClient struct {
 }
 
 type Credentials struct {
-	ClientID     string `yaml:"trakt.client-id"`
-	ClientSecret string `yaml:"trakt.client-secret"`
-	AccessToken  string `yaml:"trakt.access-token"`
-	RefreshToken string `yaml:"trakt.refresh-token"`
-	DiscordAppID string `yaml:"discord-appid"`
+	ClientID     string `toml:"trakt.client-id"`
+	ClientSecret string `toml:"trakt.client-secret"`
+	AccessToken  string `toml:"trakt.access-token"`
+	RefreshToken string `toml:"trakt.refresh-token"`
+	DiscordAppID string `toml:"discord-appid"`
 }
 
 // Create a new API client for the given API version.
@@ -40,7 +40,7 @@ func NewAPIClient() APIClient {
 	}
 
 	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
+	viper.SetConfigType("toml")
 	viper.AddConfigPath(xdgConfDir)
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -92,6 +92,7 @@ request:
 	}
 
 	req.Header.Add("Accept", "application/json")
+	req.Header.Add("trakt-api-version", "2")
 
 	if params.body != nil {
 		req.Header.Add("Content-Type", "application/json")
@@ -237,6 +238,19 @@ func (c *APIClient) AuthDeviceToken(req *AuthDeviceTokenReq) (resp *AuthTokenRes
 
 type UserHistory []HistoryItem
 
+func (uh UserHistory) AssignRatings(ratings UserHistory) {
+	// assign rating to every history item
+	for i, v := range uh {
+		hiID := v.IDs().Trakt
+		for _, k := range ratings {
+			if k.Type == v.Type && hiID == k.IDs().Trakt {
+				uh[i].Rating = k.Rating
+			}
+		}
+	}
+
+}
+
 type IDs struct {
 	Trakt  int    `json:"trakt,omitempty"`
 	Slug   string `json:"slug,omitempty"`
@@ -289,21 +303,14 @@ func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHi
 		return nil, pagination, err
 	}
 	// fetch all user ratings because user might request an arbitrary page from history
-	usrRatings, _, err := c.GetRatings(PaginationsParams{})
+	//FIXME: empty params got stuck for some reason
+	usrRatings, _, err := c.GetRatings(PaginationsParams{Page: 1, Limit: 128})
 	if err != nil {
 		// we can't get user ratings.
 		// Return History as it is and report the error
 		return resp, pagination, err
 	}
-	// assign rating to every history item
-	for i, v := range resp {
-		hiID := v.IDs().Trakt
-		for _, k := range usrRatings {
-			if k.Type == v.Type && hiID == k.IDs().Trakt {
-				resp[i].Rating = k.Rating
-			}
-		}
-	}
+	resp.AssignRatings(usrRatings)
 	return resp, pagination, nil
 }
 

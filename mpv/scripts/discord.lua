@@ -18,7 +18,7 @@ if options.binary_path == "" then
 	os.exit(1)
 end
 
-function file_exists(path) -- fix(#23): use this instead of utils.file_info
+local function file_exists(path) -- fix(#23): use this instead of utils.file_info
 	local f = io.open(path, "r")
 	if f ~= nil then
 		io.close(f)

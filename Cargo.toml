@@ -1,0 +1,29 @@
+[package]
+name = "trakt-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+anyhow = "1.0"
+
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Config directory
+dirs = "5.0"
+
+[[bin]]
+name = "trakt-api"
+path = "api.rs"
