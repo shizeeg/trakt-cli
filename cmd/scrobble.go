@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -71,7 +72,14 @@ var scrobbleCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		normalizedPath := filepath.Clean(fmt.Sprint(path))
+		urlUnescape := func(s string) string {
+			out, err := url.PathUnescape(s)
+			if err != nil {
+				return s
+			}
+			return out
+		}
+		normalizedPath := filepath.Clean(urlUnescape(fmt.Sprint(path)))
 		///FIXME: (sh!zeeg) handle this gracefully
 		guess, err := api.Guessit(filepath.Base(normalizedPath))
 		if err != nil {

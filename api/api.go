@@ -6,11 +6,15 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
 	"github.com/clarketm/json"
+
+	// "encoding/json"
 	"github.com/spf13/viper"
 )
 
@@ -84,9 +88,17 @@ type requestParams struct {
 	pagination PaginationsParams
 }
 
+func pathUnescape(s string) string {
+	out, err := url.PathUnescape(s)
+	if err != nil {
+		return s
+	}
+	return out
+}
+
 func (c *APIClient) doRequest(params requestParams) (*http.Response, error) {
 request:
-	req, err := http.NewRequest(params.method, c.Endpoint+params.path, nil)
+	req, err := http.NewRequest(params.method, c.Endpoint+pathUnescape(params.path), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -262,21 +274,21 @@ type IDs struct {
 
 type HistoryItem struct {
 	ID        int64     `json:"id,omitempty"`
-	WatchedAt time.Time `json:"watched_at,omitempty"`
-	Action    string    `json:"action,omitempty"`
 	Type      string    `json:"type,omitempty"`
-	RatedAt   time.Time `json:"rated_at,omitempty"`
+	Action    string    `json:"action,omitempty"`
 	Rating    float64   `json:"rating,omitempty"`
+	WatchedAt time.Time `json:"watched_at,omitempty"`
+	RatedAt   time.Time `json:"rated_at,omitempty"`
 	Movie     struct {
+		Ids   IDs    `json:"ids,omitempty"`
 		Title string `json:"title"`
 		Year  int    `json:"year"`
-		Ids   IDs    `json:"ids,omitempty"`
 	} `json:"movie,omitempty"`
 	Episode struct {
+		Ids    IDs    `json:"ids,omitempty"`
 		Season int    `json:"season"`
 		Number int    `json:"number"`
 		Title  string `json:"title"`
-		Ids    IDs    `json:"ids,omitempty"`
 	} `json:"episode,omitempty"`
 	Show struct {
 		Title string `json:"title"`
@@ -311,6 +323,13 @@ func (c *APIClient) GetHistoryWithRatings(params PaginationsParams) (resp UserHi
 		return resp, pagination, err
 	}
 	resp.AssignRatings(usrRatings)
+	f, err := os.Create("/tmp/profile.log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
 	return resp, pagination, nil
 }
 
@@ -505,11 +524,11 @@ func (c *APIClient) GetUserSettings() (UserSettings, error) {
 }
 
 type TraktMovie struct {
+	Ids     IDs       `json:"ids,omitempty"`
 	Rating  float64   `json:"rating,omitempty"`
 	RatedAt time.Time `json:"rated_at,omitempty"`
 	Title   string    `json:"title,omitempty"`
 	Year    int       `json:"year,omitempty"`
-	Ids     IDs       `json:"ids,omitempty"`
 }
 type TraktShow struct {
 	Title string `json:"title,omitempty"`
@@ -517,10 +536,10 @@ type TraktShow struct {
 	Ids   IDs    `json:"ids,omitempty"`
 }
 type TraktEpisode struct {
+	Ids    IDs    `json:"ids,omitempty"`
 	Season int    `json:"season,omitempty"`
 	Number int    `json:"number,omitempty"`
 	Title  string `json:"title,omitempty"`
-	Ids    IDs    `json:"ids,omitempty"`
 	// NumberAbs             any       `json:"number_abs,omitempty"`
 	Overview              string    `json:"overview,omitempty"`
 	FirstAired            time.Time `json:"first_aired,omitempty"`
@@ -571,6 +590,7 @@ func (c *APIClient) EpisodeSummary(showID string, season int, episode int) (resp
 }
 
 func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err error) {
+	fmt.Printf("Query: [%q] %s\n", mediaType, pathUnescape(query))
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
 		path:   fmt.Sprintf("/search/%s?fields=title&query=%s", mediaType, query),
@@ -605,6 +625,7 @@ func (c *APIClient) TraktSearch(guess Guess) (result TraktResponse, err error) {
 	}
 rerun:
 	for _, item := range resp {
+		fmt.Println(item)
 		if item.Match(guess) {
 			switch item.Type {
 			case "show":
