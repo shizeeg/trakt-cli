@@ -57,6 +57,7 @@ func NewAPIClient() APIClient {
 			Timeout: 120 * time.Second,
 			Transport: &http.Transport{
 				IdleConnTimeout: 5 * time.Second,
+				Proxy:           http.ProxyFromEnvironment,
 			},
 		},
 		Credentials: Credentials{
@@ -593,7 +594,7 @@ func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err
 	fmt.Printf("Query: [%q] %s\n", mediaType, pathUnescape(query))
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
-		path:   fmt.Sprintf("/search/%s?fields=title&query=%s", mediaType, query),
+		path:   fmt.Sprintf("/search/%s/exact?fields=title&query=%s", mediaType, query),
 		body:   nil,
 		auth:   true,
 	})
