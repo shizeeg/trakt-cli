@@ -86,9 +86,10 @@ var scrobbleCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		log.Printf("current file playing: %s", normalizedPath)
+		conn.Set("force-media-title", guess.String())
 		tresp, err := client.TraktSearch(guess)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		currentItem := api.TraktItem{}
 		scrobbleItem := api.ScrobbleItem{}
@@ -98,7 +99,7 @@ var scrobbleCmd = &cobra.Command{
 			if err != nil || item.String() == "" {
 				log.Fatal(err)
 			}
-			err = conn.Set("force-media-title", item.String())
+			err = conn.Set("force-media-title", currentItem.String())
 			if err != nil {
 				log.Println(err)
 			} else {
@@ -247,6 +248,9 @@ func discordPRC(ti api.TraktItem, position, duration float64) {
 }
 
 func Notify(item api.ScrobbleItem) {
+	if viper.IsSet("notifications") {
+		return
+	}
 	var icon string
 	action := ' '
 	switch item.Action {

@@ -1,5 +1,7 @@
 trakt-cli
 
 dist/
+vendor/
+target/
 
 *.json

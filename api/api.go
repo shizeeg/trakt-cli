@@ -594,7 +594,7 @@ func (c *APIClient) TraktQuery(query, mediaType string) (resp TraktResponse, err
 	fmt.Printf("Query: [%q] %s\n", mediaType, pathUnescape(query))
 	httpResp, err := c.doRequest(requestParams{
 		method: http.MethodGet,
-		path:   fmt.Sprintf("/search/%s/exact?fields=title&query=%s", mediaType, query),
+		path:   fmt.Sprintf("/search/%s/exact?fields=title&query=%s&limit=3&page=1", mediaType, query),
 		body:   nil,
 		auth:   true,
 	})
