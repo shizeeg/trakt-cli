@@ -87,6 +87,9 @@ var scrobbleCmd = &cobra.Command{
 		}
 		log.Printf("current file playing: %s", normalizedPath)
 		conn.Set("force-media-title", guess.String())
+		if !viper.GetBool("trakt.scrobble") {
+			return
+		}
 		tresp, err := client.TraktSearch(guess)
 		if err != nil {
 			log.Println(err)
